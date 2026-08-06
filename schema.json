@@ -1,0 +1,41 @@
+{
+  "_note_ur": "Ye asli database nahi hai — ye sirf ye dikhata hai ke site apna data browser ke localStorage mein kis shape mein save karti hai. Real multi-device database (jaise Firebase / MySQL) alag se add karni hogi.",
+  "_note_en": "This is not a real database — it documents the shape of the data the site saves in the browser's localStorage. A real multi-device database (e.g. Firebase / MySQL) would need to be added separately.",
+
+  "ADMIN": { "name": "Anas Ishaq", "password": "Anas007", "erp": "92642" },
+
+  "users": [
+    {
+      "serial": 1,
+      "erp": "20001",
+      "name": "example name",
+      "phone": "03001234567",
+      "password": "set by user at registration",
+      "photo": "base64 data-url or null",
+      "blocked": false
+    }
+  ],
+
+  "uploads": [
+    {
+      "id": 1,
+      "fileName": "example.jpg",
+      "fileType": "image/jpeg",
+      "dataUrl": "base64 data-url",
+      "status": "pending | published | unpublished",
+      "uploadedAt": "readable date string"
+    }
+  ],
+
+  "chatThreads": {
+    "03001234567": {
+      "name": "example name",
+      "messages": [
+        { "from": "user", "text": "Assalam o Alaikom", "time": "10:15:00 AM", "read": true }
+      ]
+    }
+  },
+
+  "siteAnnouncement": "",
+  "currentLang": "ur"
+}
