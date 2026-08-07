@@ -10,6 +10,7 @@
 </head>
 <body data-lang="ur">
 
+<div class="bg-photo"></div>
 <div class="bg-grid"></div>
 <div class="bg-glow"></div>
 <div class="scanline"></div>
@@ -176,7 +177,10 @@
         <div class="stat"><div class="num" id="stat-total">0</div><div class="lbl" data-i18n="totalUsers">Total Users</div></div>
         <div class="stat"><div class="num" id="stat-uploads">0</div><div class="lbl" data-i18n="totalUploads">Total Uploads</div></div>
         <div class="stat"><div class="num" id="stat-unread">0</div><div class="lbl" data-i18n="unreadMsgs">Unread Messages</div></div>
+        <div class="stat"><div class="num" id="stat-online" style="color:var(--green);">0</div><div class="lbl">Online Now</div></div>
+        <div class="stat"><div class="num" id="stat-offline">0</div><div class="lbl">Offline</div></div>
       </div>
+      <div id="new-user-toast-area"></div>
 
       <div class="section" id="users-section">
         <div class="list-header"><h3 data-i18n="usersLog">// System_Users.log</h3><span id="list-count">0 records</span></div>
@@ -225,6 +229,27 @@
             <button class="btn-primary" onclick="saveAnnouncement()" data-i18n="btnSaveAnn">Save Announcement</button>
             <button class="btn-primary ghost" style="margin-top:8px;" onclick="clearAnnouncement()" data-i18n="btnClearAnn">Clear Announcement</button>
             <div class="success-msg" id="ann-success"></div>
+          </div>
+          <div class="settings-card" id="cloud-sync-card">
+            <h4>// Cloud Sync (Firebase) — required for real multi-device sync</h4>
+            <div class="note">Har user ka data ab tak sirf usi browser mein save hota tha. Ye connect karne ke baad — total users, uploads, live chat, online/offline status — sab devices ke darmiyan real-time sync ho jayega. Free Firebase project banain (console.firebase.google.com), Firestore Database + Realtime Database enable karain, phir "Project settings → General → Your apps → SDK config" se ye values yahan paste karain.</div>
+            <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIzaSy..."></div>
+            <div class="field"><label>Auth Domain</label><input type="text" id="fb-authDomain" placeholder="yourproject.firebaseapp.com"></div>
+            <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="yourproject"></div>
+            <div class="field"><label>Storage Bucket</label><input type="text" id="fb-storageBucket" placeholder="yourproject.appspot.com"></div>
+            <div class="field"><label>Messaging Sender ID</label><input type="text" id="fb-messagingSenderId" placeholder="1234567890"></div>
+            <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:1234567890:web:abcd..."></div>
+            <div class="field"><label>Realtime Database URL (for online/offline status)</label><input type="text" id="fb-databaseURL" placeholder="https://yourproject-default-rtdb.firebaseio.com"></div>
+            <button class="btn-primary" onclick="saveFirebaseConfig()">Connect Cloud Sync</button>
+            <div class="success-msg" id="fb-status">Not connected — running in local-only (this device) mode.</div>
+          </div>
+          <div class="settings-card">
+            <h4>// AI Assistant Stand-In</h4>
+            <div class="note">Jab ye ON ho aur aap (Admin) offline hon, to koi bhi user live chat mein message bheje to AI Assistant khud jawab de dega — taake site har waqt "manned" rahe. (Behtar jawabon ke liye upar Gemini API key bhi set karain, warna basic rule-based jawab milega.)</div>
+            <label style="display:flex; align-items:center; gap:8px; font-family:var(--font-m); font-size:13px; margin-top:8px;">
+              <input type="checkbox" id="ai-standin-toggle" onchange="toggleAiStandIn()"> Enable AI stand-in when I'm offline
+            </label>
+            <div class="success-msg" id="ai-standin-status"></div>
           </div>
         </div>
       </div>
@@ -309,6 +334,10 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="script.js"></script>
+<script src="firebase-sync.js"></script>
 </body>
 </html>

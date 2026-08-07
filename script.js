@@ -436,7 +436,7 @@
         <div class="serial">#${String(u.serial).padStart(3,'0')}</div>
         <div class="ph">${u.photo ? `<img src="${u.photo}">` : initials(u.name)}</div>
         <div class="info">
-          <div class="n">${escapeHtml(u.name)}</div>
+          <div class="n">${escapeHtml(u.name)} <span class="presence-dot ${onlinePhones.has(u.phone) ? 'is-online' : 'is-offline'}" title="${onlinePhones.has(u.phone) ? 'Online' : 'Offline'}"></span></div>
           <div class="p">${escapeHtml(u.phone)}</div>
           <div class="e">ERP ${u.erp}</div>
           ${u.blocked ? `<div class="badge-blocked">● ${currentLang==='ur'?'Blocked':'Blocked'}</div>` : ''}
@@ -446,9 +446,41 @@
             ? `<button class="btn-outline-green" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Unblock':'Unblock'}</button>`
             : `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>`}
           <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
+          <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
+          <button class="btn-outline-green" onclick="viewUserProfile('${u.phone}')">👤 Profile</button>
         </div>
       </div>
     `).join('') + `</div>`;
+  }
+
+  // Tracks which users' phones are currently online — populated by
+  // firebase-sync.js (presence system). Empty set = cloud sync not
+  // connected, so nobody shows as "online" (this browser can't know).
+  var onlinePhones = new Set();
+
+  function adminResetUserPassword(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    const label = currentLang==='ur' ? ('"' + u.name + '" ke liye naya password likhain (kam az kam 4 characters):') : ('Enter a new password for "' + u.name + '" (min 4 characters):');
+    const val = prompt(label);
+    if(val === null) return;
+    if(val.length < 4){ alert(currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'); return; }
+    u.password = val;
+    saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    alert(currentLang==='ur' ? (u.name + ' ka password update ho gaya.') : (u.name + "'s password has been updated."));
+  }
+
+  function viewUserProfile(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    document.getElementById('modal-title').textContent = u.name;
+    document.getElementById('modal-preview').innerHTML = u.photo ? `<img src="${u.photo}">` : `<div style="padding:30px; text-align:center; font-size:40px;">${initials(u.name)}</div>`;
+    document.getElementById('modal-owner').textContent = 'Phone: ' + u.phone + '  •  ERP: ' + u.erp;
+    document.getElementById('modal-status').textContent = (u.blocked ? 'Blocked' : 'Active') + '  •  ' + (onlinePhones.has(u.phone) ? 'Online now' : 'Offline');
+    const dl = document.getElementById('modal-download');
+    dl.style.display = 'none';
+    document.getElementById('file-modal').classList.add('show');
   }
 
   function toggleBlock(phone){
@@ -561,6 +593,7 @@
     document.getElementById('modal-owner').textContent = (currentLang==='ur'?'Admin ki taraf se':'From Admin');
     document.getElementById('modal-status').textContent = 'Status: ' + u.status;
     const dl = document.getElementById('modal-download');
+    dl.style.display = '';
     dl.href = u.dataUrl;
     dl.download = u.fileName;
     document.getElementById('file-modal').classList.add('show');
@@ -642,7 +675,7 @@
     thread.messages.forEach(m => { if(m.from === 'admin') m.read = true; });
     const log = document.getElementById('user-chat-log');
     log.innerHTML = thread.messages.map(m => `
-      <div class="chat-bubble ${m.from === 'user' ? 'me' : 'them'}">${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
+      <div class="chat-bubble ${m.from === 'user' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
     `).join('') || `<div class="empty-note" style="padding:16px;">${currentLang==='ur' ? 'Admin ko message bhejain.' : 'Send a message to Admin.'}</div>`;
     log.scrollTop = log.scrollHeight;
     document.getElementById('chat-badge').classList.remove('show');
@@ -699,7 +732,7 @@
     const th = chatThreads[openThreadPhone];
     const log = document.getElementById('admin-chat-log');
     log.innerHTML = th.messages.map(m => `
-      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'}">${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
+      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
     `).join('') || `<div class="empty-note" style="padding:16px;">${currentLang==='ur' ? 'Koi message nahi.' : 'No messages.'}</div>`;
     log.scrollTop = log.scrollHeight;
   }
@@ -841,9 +874,17 @@
   // =================================================================
   let recognition = null;
   let isListening = false;
+  let keepConversationGoing = false; // true while assistant should auto re-listen after each reply
+  let restartTimer = null;
 
   function getSpeechRecognitionClass(){
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  // file:// pages cannot get mic access in Chrome/Edge — must be served over
+  // http(s) (a real host, or "Live Server" / `python -m http.server` locally).
+  function isMicCapableContext(){
+    return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   }
 
   function toggleListening(){
@@ -852,16 +893,30 @@
 
     const SR = getSpeechRecognitionClass();
     if(!SR){
-      logToAssistant('a', currentLang==='ur' ? 'Ye browser voice recognition support nahi karta. Chrome try karain, ya neeche type kar ke command dein.' : 'This browser does not support voice recognition. Try Chrome, or type your command below.');
+      logToAssistant('a', currentLang==='ur' ? 'Ye browser voice recognition support nahi karta. Chrome/Edge try karain, ya neeche type kar ke command dein.' : 'This browser does not support voice recognition. Try Chrome/Edge, or type your command below.');
+      addTypeFallback();
+      return;
+    }
+    if(!isMicCapableContext()){
+      logToAssistant('a', currentLang==='ur'
+        ? 'Mic sirf https:// website ya localhost par kaam karta hai — file ko seedha double-click kar ke kholne par browser mic band kar deta hai. Site ko host karain (ya localhost par chalain), phir mic kaam karega. Abhi ke liye neeche type kar ke command dein.'
+        : "The mic only works when this page is served over https:// or localhost — opening the file directly (file://) makes Chrome/Edge block microphone access. Host the site (or run it on localhost), then the mic will work. For now, type your command below.");
       addTypeFallback();
       return;
     }
 
     if(isListening){
+      keepConversationGoing = false;
       stopListening();
       return;
     }
 
+    keepConversationGoing = true;
+    startRecognitionCycle();
+  }
+
+  function startRecognitionCycle(){
+    const SR = getSpeechRecognitionClass();
     recognition = new SR();
     recognition.lang = currentLang === 'ur' ? 'ur-PK' : 'en-US';
     recognition.continuous = false;
@@ -873,10 +928,28 @@
       logToAssistant('a', currentLang==='ur' ? 'Sun raha hoon... bolain.' : 'Listening... speak now.');
     };
     recognition.onerror = (e) => {
-      logToAssistant('a', (currentLang==='ur' ? 'Awaz samajh nahi aayi (' : 'Could not understand (') + e.error + '). ' + (currentLang==='ur' ? 'Dubara koshish karain.' : 'Try again.'));
+      keepConversationGoing = false;
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        logToAssistant('a', currentLang==='ur' ? 'Mic ki permission block hai. Browser address bar ke pas 🔒/mic icon par click karke mic ko "Allow" karain, phir dobara try karain.' : 'Microphone permission is blocked. Click the 🔒/mic icon in the address bar, allow the microphone, then try again.');
+      } else if(e.error === 'no-speech'){
+        logToAssistant('a', currentLang==='ur' ? 'Kuch suna nahi. Dubara bolain.' : "Didn't catch anything. Try speaking again.");
+        keepConversationGoing = true;
+      } else {
+        logToAssistant('a', (currentLang==='ur' ? 'Awaz samajh nahi aayi (' : 'Could not understand (') + e.error + '). ' + (currentLang==='ur' ? 'Dubara koshish karain.' : 'Try again.'));
+      }
       stopListening();
     };
-    recognition.onend = () => { stopListening(); };
+    recognition.onend = () => {
+      isListening = false;
+      document.getElementById('mic-btn').classList.remove('listening');
+      // If the assistant is meant to stay "on", automatically start listening
+      // again after a short pause — creates a real back-and-forth conversation
+      // instead of stopping after one sentence.
+      if(keepConversationGoing){
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => { if(keepConversationGoing) startRecognitionCycle(); }, 500);
+      }
+    };
     recognition.onresult = (event) => {
       const said = event.results[0][0].transcript;
       logToAssistant('u', said);
@@ -888,6 +961,8 @@
 
   function stopListening(){
     isListening = false;
+    keepConversationGoing = false;
+    clearTimeout(restartTimer);
     document.getElementById('mic-btn').classList.remove('listening');
     if(recognition){ try{ recognition.stop(); }catch(e){} }
   }
@@ -938,8 +1013,17 @@
     const text = raw.trim();
     const low = text.toLowerCase();
 
+    // Stop the always-listening conversation loop
+    if(low.includes('stop listening') || low.includes('band karo') || low.includes('chup ho') || low.includes('rukjao') || low.includes('ruk jao')){
+      keepConversationGoing = false;
+      speak(currentLang==='ur' ? 'Theek hai, mic band kar raha hoon.' : 'Okay, turning the mic off.');
+      setTimeout(stopListening, 300);
+      return;
+    }
+
     if(low.includes('logout') || text.includes('لاگ آؤٹ')){
       speak(currentLang==='ur' ? 'Aap logout ho rahe hain.' : 'Logging you out.');
+      keepConversationGoing = false;
       setTimeout(logout, 600);
       return;
     }
@@ -947,6 +1031,22 @@
       window.scrollTo({top:0, behavior:'smooth'});
       speak(currentLang==='ur' ? 'Dashboard par wapas le aya hoon.' : 'Back at the dashboard.');
       return;
+    }
+
+    // Generic "open X" / "click X" — works anywhere on the site (admin or
+    // user side), and can open/click anything currently on screen: menu
+    // items, uploaded files/links, buttons, section headings, etc.
+    if(low.startsWith('open ') || low.startsWith('click ') || low.includes('kholo') || low.includes('khol do') || text.includes('کھولو') || text.includes('کلک')){
+      let fragment = low;
+      ['open ', 'click '].forEach(k => { if(fragment.startsWith(k)) fragment = fragment.slice(k.length); });
+      fragment = fragment.replace(/\bkholo\b|\bkhol do\b|\bko\b|\bkholain\b|\bpar click karo\b|\bclick karo\b/g, '').trim();
+      if(fragment && clickElementByText(fragment)){
+        speak(currentLang==='ur' ? `"${fragment}" khol raha hoon.` : `Opening "${fragment}".`);
+        return;
+      } else if(fragment){
+        speak(currentLang==='ur' ? `Mujhe "${fragment}" naam ki cheez screen par nahi mili.` : `I couldn't find anything on screen called "${fragment}".`);
+        return;
+      }
     }
 
     if(currentRole === 'admin'){
@@ -1032,7 +1132,59 @@
       }
     }
 
+    // General conversation — small talk / greetings, so the assistant can
+    // chat even when it's not a site command.
+    const chit = chitChatReply(low, text);
+    if(chit){ speak(chit); return; }
+
     speak(currentLang==='ur' ? 'Maaf kijiye, ye command samajh nahi aayi. Dobara kahiye ya type kar ke likhain.' : "Sorry, I didn't understand that command. Try again or type it out.");
+  }
+
+  // Finds a clickable/visible element on the CURRENT screen whose text
+  // matches the spoken fragment, and clicks it — this is how voice commands
+  // like "open uploads" or "click publish" actually control the page.
+  function clickElementByText(fragment){
+    fragment = fragment.trim().toLowerCase();
+    if(!fragment) return false;
+    const activeScreen = document.querySelector('.screen.active') || document;
+    const candidates = activeScreen.querySelectorAll('button, a, [onclick], input[type="submit"], input[type="button"], .tab, .nav-item, [role="button"], summary, h1, h2, h3, .section-title');
+    let best = null, bestScore = 0;
+    candidates.forEach(el => {
+      if(el.offsetParent === null) return; // skip hidden elements
+      const label = (el.getAttribute('aria-label') || el.textContent || el.value || '').trim().toLowerCase();
+      if(!label) return;
+      if(label === fragment){ best = el; bestScore = 100; }
+      else if((label.includes(fragment) || fragment.includes(label)) && bestScore < 50){ best = el; bestScore = 50; }
+    });
+    if(!best) return false;
+    if(typeof best.click === 'function') best.click();
+    else best.scrollIntoView({behavior:'smooth', block:'center'});
+    if(best.scrollIntoView && bestScore < 100) best.scrollIntoView({behavior:'smooth', block:'center'});
+    return true;
+  }
+
+  // Lightweight small-talk so the assistant can hold a normal conversation,
+  // not just fire commands. Extend this list any time.
+  function chitChatReply(low, original){
+    const has = (...words) => words.some(w => low.includes(w));
+    if(has('kaisay ho', 'kesay ho', 'kia hal', 'kya hal', 'how are you', 'kya haal hai')){
+      return currentLang==='ur' ? 'Main bilkul theek hoon, shukriya! Aap batain, main aapki kya madad kar sakta hoon?' : "I'm doing great, thanks for asking! How can I help you?";
+    }
+    if(has('assalam', 'salam', 'hello', 'hi ', 'hey')){
+      return currentLang==='ur' ? 'Walaikum Assalam! Main aapka voice assistant hoon — koi bhi command bolain ya baat karain.' : 'Hello! I\'m your voice assistant — give me a command or just chat.';
+    }
+    if(has('shukriya', 'thank you', 'thanks')){
+      return currentLang==='ur' ? 'Koi baat nahi, hamesha hazir hoon!' : "You're welcome, always here to help!";
+    }
+    if(has('naam kya', 'aapka naam', 'your name', 'who are you', 'kaun ho')){
+      return currentLang==='ur' ? 'Main Anas Technical World ka AI voice assistant hoon.' : "I'm the Anas Technical World AI voice assistant.";
+    }
+    if(has('help', 'madad', 'kya kar sakty', 'kya kar sakte')){
+      return currentLang==='ur'
+        ? 'Main site control kar sakta hoon — jaise "open uploads", "block Ahmed", "publish file", "logout" — ya bas mujhse baat kar sakte hain.'
+        : 'I can control the site — like "open uploads", "block Ahmed", "publish file", "logout" — or you can just chat with me.';
+    }
+    return null;
   }
 
   function extractAfterKeyword(low, keyword){
