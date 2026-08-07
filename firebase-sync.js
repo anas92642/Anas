@@ -96,9 +96,9 @@ function initFirebase(){
     if(currentRole === 'admin') setMyPresence('admin');
     else if(currentRole === 'user' && currentUser) setMyPresence(currentUser.phone);
   }catch(e){
-    console.warn('Firebase init failed', e);
     const statusEl = document.getElementById('fb-status');
     if(statusEl) statusEl.textContent = 'Connection failed: ' + e.message;
+    showFbError('init', e);
   }
 }
 
@@ -129,7 +129,7 @@ function startCloudListeners(){
       document.getElementById('list-count').textContent = users.length + ' records';
       renderUsersList();
     }
-  }, err => console.warn('users listener error', err));
+  }, err => showFbError('users', err));
 
   // Uploads collection — this is what makes admin uploads show up on every
   // user's device, not just the admin's own browser.
@@ -141,7 +141,7 @@ function startCloudListeners(){
     saveState();
     if(currentRole === 'admin') renderAdminUploads();
     if(currentRole === 'user') renderCommunityUploads();
-  }, err => console.warn('uploads listener error', err));
+  }, err => showFbError('uploads', err));
 
   // Meta doc — announcement + admin password, shared site-wide
   if(fbUnsubMeta) fbUnsubMeta();
@@ -151,7 +151,7 @@ function startCloudListeners(){
     if(typeof d.siteAnnouncement === 'string'){ siteAnnouncement = d.siteAnnouncement; applyAnnouncement(); }
     if(d.adminPassword){ ADMIN.password = d.adminPassword; }
     saveState();
-  }, err => console.warn('meta listener error', err));
+  }, err => showFbError('meta', err));
 
   // Presence (Realtime Database) — who's online right now
   if(fbRtdb){
@@ -180,6 +180,38 @@ function startCloudListeners(){
   // If admin is viewing an open chat thread, make sure it's subscribed
   if(currentRole === 'admin' && openThreadPhone) subscribeToChat(openThreadPhone);
   if(currentRole === 'user' && currentUser) subscribeToChat(currentUser.phone);
+}
+
+// -----------------------------------------------------------------
+// VISIBLE ERROR BANNER — cloud sync errors (e.g. Firestore permission
+// denied because Security Rules aren't set, or the database was never
+// created in the Firebase console) used to only show up in the browser
+// DevTools console, which most people never open. Now they show as a
+// clear on-page banner so the problem is obvious immediately.
+// -----------------------------------------------------------------
+function showFbError(context, err){
+  console.warn(context, err);
+  let banner = document.getElementById('fb-error-banner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = 'fb-error-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;font-family:sans-serif;font-size:14px;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    document.body.prepend(banner);
+  }
+  const code = (err && err.code) || 'unknown';
+  let hint = 'Cloud sync error (' + context + '): ' + code + '.';
+  if(code === 'permission-denied'){
+    hint += ' Firestore Security Rules data ko block kar rahi hain — Firebase Console → Firestore Database → Rules mein jaake read/write allow karain.';
+  } else if(code === 'unavailable' || code === 'not-found'){
+    hint += ' Firestore Database shayad Firebase Console mein abhi banaya hi nahi gaya — Console → Firestore Database → Create database.';
+  }
+  banner.textContent = '⚠️ ' + hint;
+  banner.style.display = 'block';
+  const closeBtn = document.createElement('span');
+  closeBtn.textContent = ' ✕';
+  closeBtn.style.cssText = 'cursor:pointer;float:right;font-weight:bold;';
+  closeBtn.onclick = () => { banner.style.display = 'none'; };
+  banner.appendChild(closeBtn);
 }
 
 function showNewUserToast(u){
@@ -237,7 +269,7 @@ function subscribeToChat(phone){
       saveState();
       if(currentRole === 'user' && currentUser && currentUser.phone === phone) renderUserChatLog();
       if(currentRole === 'admin'){ renderThreadList(); if(openThreadPhone === phone) renderAdminChatLog(); document.getElementById('stat-unread').textContent = countUnread(); }
-    }, err => console.warn('chat listener error', err));
+    }, err => showFbError('chat', err));
 }
 
 function fbSendChatMessage(phone, msg){
