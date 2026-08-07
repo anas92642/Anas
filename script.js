@@ -683,7 +683,7 @@
       return;
     }
     area.innerHTML = `<div class="upload-grid">` + pub.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.08}s" onclick="${u.type === 'link' ? `openLinkPreview(${u.id})` : `openFilePreview(${u.id})`}">
+      <div class="upload-card" style="animation-delay:${i*0.08}s" onclick="${u.type === 'link' ? `window.open('${u.url}', '_blank')` : `openFilePreview(${u.id})`}">
         <div class="upload-thumb" style="cursor:pointer;">${uploadThumb(u)}</div>
         <div class="upload-name">${escapeHtml(u.fileName)}</div>
         <div class="upload-owner">${currentLang==='ur' ? 'Admin ki taraf se' : 'From Admin'}</div>
@@ -699,7 +699,7 @@
       return;
     }
     area.innerHTML = `<div class="upload-grid">` + uploads.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.05}s" onclick="${u.type === 'link' ? `openLinkPreview(${u.id})` : `openFilePreview(${u.id})`}">
+      <div class="upload-card" style="animation-delay:${i*0.05}s" onclick="${u.type === 'link' ? `window.open('${u.url}', '_blank')` : `openFilePreview(${u.id})`}">
         <div class="upload-thumb" style="cursor:pointer;">${uploadThumb(u)}</div>
         <div class="upload-name">${escapeHtml(u.fileName)}</div>
         ${statusBadge(u.status)}
@@ -874,7 +874,7 @@
 
   function openThreadFor(phone){
     openThreadPhone = phone;
-    document.getElementById('users-section').scrollIntoView({behavior:'smooth'});
+    document.getElementById('chat-section').scrollIntoView({behavior:'smooth'});
     document.getElementById('admin-chat-box').style.display = 'flex';
     document.getElementById('admin-chat-box').style.flexDirection = 'column';
     const th = chatThreads[phone] || { name: (users.find(u=>u.phone===phone)||{}).name || phone, messages: [] };
