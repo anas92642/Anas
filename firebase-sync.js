@@ -247,6 +247,7 @@ function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).de
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
+function fbSaveChatThread(phone, thread){ if(fbReady) fbDb.collection('chats').doc(phone).set(thread).catch(e=>console.warn(e)); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;
@@ -357,7 +358,7 @@ function wrapForCloudSync(){
       const val = input ? input.value.trim() : '';
       if(!val || typeof currentUser === 'undefined' || !currentUser) return;
       if(fbReady){
-        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
+        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false, ts: Date.now() });
         if(input) input.value = '';
       } else {
         _userSendMessage();
@@ -372,7 +373,7 @@ function wrapForCloudSync(){
       const val = input ? input.value.trim() : '';
       if(!val || typeof openThreadPhone === 'undefined' || !openThreadPhone) return;
       if(fbReady){
-        fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
+        fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true, ts: Date.now() });
         if(input) input.value = '';
       } else {
         _adminSendMessage();

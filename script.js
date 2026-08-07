@@ -450,6 +450,7 @@
     openThreadPhone = null;
     saveSession();
     document.getElementById('login-phone').value = '';
+    document.getElementById('login-password').value = '';
     document.getElementById('admin-password').value = '';
     switchUserTab('register');
     switchRoleTab('user');
@@ -488,6 +489,7 @@
           }
           <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
           <button class="btn-outline-green" onclick="viewUserProfile('${u.phone}')">👤 Profile</button>
+          <button class="btn-outline-danger" onclick="deleteUser('${u.phone}')">Delete</button>
         </div>
       </div>
     `).join('') + `</div>`;
@@ -574,6 +576,17 @@
     const u = users.find(x => x.phone === phone);
     if(!u) return;
     if(!confirm((currentLang==='ur'?'Kya aap user "' : 'Are you sure you want to reject and delete user "') + u.name + '"?')) return;
+    users = users.filter(x => x.phone !== phone);
+    delete chatThreads[phone];
+    saveState();
+    if(window.fbDeleteUser) window.fbDeleteUser(phone);
+    renderUsersList();
+  }
+
+  function deleteUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    if(!confirm((currentLang==='ur'?'Kya aap waqai user "' : 'Are you sure you want to permanently delete user "') + u.name + '"? This action cannot be undone.')) return;
     users = users.filter(x => x.phone !== phone);
     delete chatThreads[phone];
     saveState();
@@ -835,7 +848,7 @@
     const val = input.value.trim();
     if(!val) return;
     const thread = chatThreads[currentUser.phone] || { name: currentUser.name, messages: [] };
-    thread.messages.push({ from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
+    thread.messages.push({ from:'user', text: val, time: new Date().toLocaleTimeString(), read:false, ts: Date.now() });
     chatThreads[currentUser.phone] = thread;
     saveState();
     input.value = '';
@@ -880,7 +893,10 @@
     const th = chatThreads[openThreadPhone];
     const log = document.getElementById('admin-chat-log');
     log.innerHTML = th.messages.map(m => `
-      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
+      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">
+        ${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span>
+        <button class="delete-msg-btn" onclick="deleteChatMessage('${openThreadPhone}', '${m.ts}')" title="Delete Message">✕</button>
+      </div>
     `).join('') || `<div class="empty-note" style="padding:16px;">${currentLang==='ur' ? 'Koi message nahi.' : 'No messages.'}</div>`;
     log.scrollTop = log.scrollHeight;
   }
@@ -891,11 +907,25 @@
     const val = input.value.trim();
     if(!val) return;
     const th = chatThreads[openThreadPhone];
-    th.messages.push({ from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
+    th.messages.push({ from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true, ts: Date.now() });
     saveState();
     input.value = '';
     renderAdminChatLog();
     renderThreadList();
+  }
+
+  // Poll for changes every 2.5s so an open chat feels "live" within this
+  function deleteChatMessage(phone, timestamp) {
+    if (!confirm(currentLang === 'ur' ? 'Kya aap waqai is message ko delete karna chahte hain?' : 'Are you sure you want to delete this message?')) return;
+    
+    const thread = chatThreads[phone];
+    if (thread) {
+      thread.messages = thread.messages.filter(m => String(m.ts) !== String(timestamp));
+      saveState();
+      if (window.fbSaveChatThread) window.fbSaveChatThread(phone, thread);
+      renderAdminChatLog();
+      renderThreadList();
+    }
   }
 
   // Poll for changes every 2.5s so an open chat feels "live" within this
@@ -927,6 +957,11 @@
   // TYPEWRITER HEADING
   // =================================================================
   function typeText(el, text, speed){
+    // Ensure the element exists before proceeding
+    if (!el) {
+      console.error("Typewriter target element not found.");
+      return;
+    }
     el.innerHTML = '';
     let i = 0;
     const cursor = document.createElement('span');

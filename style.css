@@ -554,10 +554,28 @@
   .chat-panel.open{ display:flex; flex-direction:column; }
   .chat-panel .cp-title{ font-family:var(--font-m); font-size:11px; letter-spacing:.1em; color:var(--whatsapp); text-transform:uppercase; margin-bottom:8px; }
   .chat-log{ overflow-y:auto; flex:1; margin-bottom:8px; font-family:var(--font-m); font-size:11.5px; max-height:200px; display:flex; flex-direction:column; gap:6px; }
-  .chat-bubble{ padding:7px 10px; border-radius:8px; max-width:85%; line-height:1.4; }
+  .chat-bubble{ position:relative; padding:7px 10px; border-radius:8px; max-width:85%; line-height:1.4; }
   .chat-bubble.me{ align-self:flex-end; background:rgba(61,243,255,0.15); color:var(--text); }
   .chat-bubble.them{ align-self:flex-start; background:rgba(37,211,102,0.12); color:var(--green); }
   .chat-bubble .t{ display:block; font-size:9px; color:var(--dim); margin-top:3px; }
+  .delete-msg-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    border: 1px solid var(--bg);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 16px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity .2s ease;
+  }
+  .chat-bubble:hover .delete-msg-btn { opacity: 1; }
 
   .chat-threads{ display:grid; gap:8px; margin-bottom:14px; }
   .thread-row{
