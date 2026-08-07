@@ -105,6 +105,14 @@ function startCloudListeners(){
     });
     if(typeof users !== 'undefined') {
       users = cloudUsers.sort((a,b) => (a.serial || 0) - (b.serial || 0));
+      // Auto-subscribe to every registered user's chat thread so the admin
+      // sees incoming messages live, even for users whose thread the admin
+      // has never manually opened yet (previously only the currently-open
+      // thread was subscribed, so brand-new conversations were invisible
+      // until the admin clicked into them).
+      if(typeof currentRole !== 'undefined' && currentRole === 'admin'){
+        cloudUsers.forEach(u => { if(u.phone) subscribeToChat(u.phone); });
+      }
     }
     if(typeof saveState === 'function') saveState();
     if(typeof currentRole !== 'undefined' && currentRole === 'admin'){
@@ -247,10 +255,10 @@ window.addEventListener('beforeunload', clearMyPresence);
 // -----------------------------------------------------------------
 // PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
-function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
-function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
-function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
-function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
+function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>showFbError('save-user', e)); }
+function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>showFbError('save-upload', e)); }
+function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>showFbError('delete-upload', e)); }
+function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>showFbError('save-meta', e)); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;
@@ -280,7 +288,7 @@ function subscribeToChat(phone){
 
 function fbSendChatMessage(phone, msg){
   if(!fbReady) return;
-  fbDb.collection('chats').doc(phone).collection('messages').add(Object.assign({}, msg, { ts: Date.now() })).catch(e=>console.warn(e));
+  fbDb.collection('chats').doc(phone).collection('messages').add(Object.assign({}, msg, { ts: Date.now() })).catch(e=>showFbError('send-message', e));
 }
 
 // -----------------------------------------------------------------
