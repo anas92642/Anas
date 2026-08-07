@@ -1,29 +1,13 @@
 // =================================================================
 // FIREBASE CLOUD SYNC (additive layer — loads AFTER script.js)
-// Everything here is optional: if the admin hasn't pasted in a Firebase
-// config yet, this file quietly does nothing and the site behaves exactly
-// as before (local-only, per-browser). Once connected, it mirrors the
-// site's data (users, uploads, chat, announcement, admin password) to
-// Firestore in real time, and tracks online/offline presence with the
-// Realtime Database — so every device sees the same live data.
-//
-// Setup: Admin panel → Settings → "Cloud Sync (Firebase)" card.
+// Fixed and Fully Configured for Anas Technical World
 // =================================================================
 
 const FB_CONFIG_KEY = 'atw_firebase_config';
 const AI_STANDIN_KEY = 'atw_ai_standin_enabled';
 
 // -----------------------------------------------------------------
-// BUILT-IN CONFIG — fill this in ONCE with your Firebase project's
-// values (Firebase console → Project settings → General → Your apps →
-// SDK config) and every browser/device/network that opens this site
-// will connect automatically. This is what fixes "only works on my
-// computer" — previously the config only lived in the Admin Panel
-// form, which saves to THAT browser's localStorage only, so no other
-// visitor's browser ever had it. Firebase web apiKeys are meant to be
-// public in client code (they are not secret) — access is controlled
-// by your Firestore/Realtime Database security rules, not by hiding
-// this key.
+// BUILT-IN CONFIG
 // -----------------------------------------------------------------
 const DEFAULT_FB_CONFIG = {
   apiKey: "AIzaSyBN671_ZOD4wzzj6rQzgDoaDdaIYzDycRA",
@@ -32,43 +16,42 @@ const DEFAULT_FB_CONFIG = {
   storageBucket: "anas-tech-6ff0b.firebasestorage.app",
   messagingSenderId: "926205065962",
   appId: "1:926205065962:web:1f0f4057ea941d0f02b593",
-  databaseURL: "" // TODO: paste your Realtime Database URL here (see note below) — needed for online/offline presence to work
+  databaseURL: "https://anas-tech-6ff0b-default-rtdb.firebaseio.com"
 };
+
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
 let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null;
-let fbChatUnsubs = {}; // phone -> unsubscribe fn
-let fbKnownUserPhones = new Set(); // to detect genuinely NEW logins for the toast
+let fbChatUnsubs = {}; 
+let fbKnownUserPhones = new Set();
 let myPresenceRef = null;
 
 function loadFirebaseConfig(){
-  // 1) Prefer whatever this browser saved via the Admin Panel form
-  //    (lets the admin override without editing code).
-  try{
+  try {
     const saved = JSON.parse(localStorage.getItem(FB_CONFIG_KEY) || 'null');
     if(saved && saved.apiKey && saved.projectId) return saved;
-  }catch(e){ /* ignore */ }
-  // 2) Fall back to the built-in config above, so EVERY browser/device
-  //    connects the same way without needing the form filled in.
+  } catch(e){ /* ignore */ }
   if(DEFAULT_FB_CONFIG.apiKey && DEFAULT_FB_CONFIG.projectId) return DEFAULT_FB_CONFIG;
   return null;
 }
 
 function saveFirebaseConfig(){
   const cfg = {
-    apiKey: document.getElementById('fb-apiKey').value.trim(),
-    authDomain: document.getElementById('fb-authDomain').value.trim(),
-    projectId: document.getElementById('fb-projectId').value.trim(),
-    storageBucket: document.getElementById('fb-storageBucket').value.trim(),
-    messagingSenderId: document.getElementById('fb-messagingSenderId').value.trim(),
-    appId: document.getElementById('fb-appId').value.trim(),
-    databaseURL: document.getElementById('fb-databaseURL').value.trim()
+    apiKey: document.getElementById('fb-apiKey')?.value.trim(),
+    authDomain: document.getElementById('fb-authDomain')?.value.trim(),
+    projectId: document.getElementById('fb-projectId')?.value.trim(),
+    storageBucket: document.getElementById('fb-storageBucket')?.value.trim(),
+    messagingSenderId: document.getElementById('fb-messagingSenderId')?.value.trim(),
+    appId: document.getElementById('fb-appId')?.value.trim(),
+    databaseURL: document.getElementById('fb-databaseURL')?.value.trim()
   };
   if(!cfg.apiKey || !cfg.projectId){
-    document.getElementById('fb-status').textContent = 'Please fill in at least API Key and Project ID.';
+    const el = document.getElementById('fb-status');
+    if(el) el.textContent = 'Please fill in at least API Key and Project ID.';
     return;
   }
   localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(cfg));
-  document.getElementById('fb-status').textContent = 'Connecting...';
+  const el = document.getElementById('fb-status');
+  if(el) el.textContent = 'Connecting...';
   initFirebase();
 }
 
@@ -90,11 +73,11 @@ function initFirebase(){
     const statusEl = document.getElementById('fb-status');
     if(statusEl) statusEl.textContent = '✅ Connected — data now syncs live across every device.';
     startCloudListeners();
-    // If a session was already restored (e.g. page refresh) before Firebase
-    // finished connecting, re-establish this device's online presence now —
-    // otherwise a refreshed admin/user would stay stuck showing "offline".
-    if(currentRole === 'admin') setMyPresence('admin');
-    else if(currentRole === 'user' && currentUser) setMyPresence(currentUser.phone);
+    
+    if(typeof currentRole !== 'undefined'){
+      if(currentRole === 'admin') setMyPresence('admin');
+      else if(currentRole === 'user' && typeof currentUser !== 'undefined' && currentUser) setMyPresence(currentUser.phone);
+    }
   }catch(e){
     const statusEl = document.getElementById('fb-status');
     if(statusEl) statusEl.textContent = 'Connection failed: ' + e.message;
@@ -103,9 +86,7 @@ function initFirebase(){
 }
 
 // -----------------------------------------------------------------
-// REAL-TIME LISTENERS — pull cloud changes into the local arrays that
-// script.js already renders with, so every existing render*() function
-// keeps working unchanged.
+// REAL-TIME LISTENERS
 // -----------------------------------------------------------------
 function startCloudListeners(){
   if(!fbReady) return;
@@ -115,61 +96,77 @@ function startCloudListeners(){
   fbUnsubUsers = fbDb.collection('users').onSnapshot(snap => {
     const cloudUsers = [];
     snap.forEach(doc => cloudUsers.push(doc.data()));
-    const isFirstLoad = fbKnownUserPhones.size === 0 && users.length === 0;
+    const isFirstLoad = fbKnownUserPhones.size === 0 && (typeof users !== 'undefined' && users.length === 0);
     cloudUsers.forEach(u => {
-      if(currentRole === 'admin' && !isFirstLoad && !fbKnownUserPhones.has(u.phone)){
+      if(typeof currentRole !== 'undefined' && currentRole === 'admin' && !isFirstLoad && !fbKnownUserPhones.has(u.phone)){
         showNewUserToast(u);
       }
       fbKnownUserPhones.add(u.phone);
     });
-    users = cloudUsers.sort((a,b) => a.serial - b.serial);
-    saveState();
-    if(currentRole === 'admin' && document.getElementById('screen-welcome-admin').classList.contains('active')){
-      document.getElementById('stat-total').textContent = users.length;
-      document.getElementById('list-count').textContent = users.length + ' records';
-      renderUsersList();
+    if(typeof users !== 'undefined') {
+      users = cloudUsers.sort((a,b) => (a.serial || 0) - (b.serial || 0));
+    }
+    if(typeof saveState === 'function') saveState();
+    if(typeof currentRole !== 'undefined' && currentRole === 'admin'){
+      const screen = document.getElementById('screen-welcome-admin');
+      if(screen && screen.classList.contains('active')){
+        const st = document.getElementById('stat-total');
+        const lc = document.getElementById('list-count');
+        if(st) st.textContent = cloudUsers.length;
+        if(lc) lc.textContent = cloudUsers.length + ' records';
+        if(typeof renderUsersList === 'function') renderUsersList();
+      }
     }
   }, err => showFbError('users', err));
 
-  // Uploads collection — this is what makes admin uploads show up on every
-  // user's device, not just the admin's own browser.
+  // Uploads collection
   if(fbUnsubUploads) fbUnsubUploads();
   fbUnsubUploads = fbDb.collection('uploads').onSnapshot(snap => {
     const cloudUploads = [];
     snap.forEach(doc => cloudUploads.push(doc.data()));
-    uploads = cloudUploads.sort((a,b) => a.id - b.id);
-    saveState();
-    if(currentRole === 'admin') renderAdminUploads();
-    if(currentRole === 'user') renderCommunityUploads();
+    if(typeof uploads !== 'undefined'){
+      uploads = cloudUploads.sort((a,b) => a.id - b.id);
+    }
+    if(typeof saveState === 'function') saveState();
+    if(typeof currentRole !== 'undefined'){
+      if(currentRole === 'admin' && typeof renderAdminUploads === 'function') renderAdminUploads();
+      if(currentRole === 'user' && typeof renderCommunityUploads === 'function') renderCommunityUploads();
+    }
   }, err => showFbError('uploads', err));
 
-  // Meta doc — announcement + admin password, shared site-wide
+  // Meta doc
   if(fbUnsubMeta) fbUnsubMeta();
   fbUnsubMeta = fbDb.collection('meta').doc('site').onSnapshot(doc => {
     if(!doc.exists) return;
     const d = doc.data();
-    if(typeof d.siteAnnouncement === 'string'){ siteAnnouncement = d.siteAnnouncement; applyAnnouncement(); }
-    if(d.adminPassword){ ADMIN.password = d.adminPassword; }
-    saveState();
+    if(typeof d.siteAnnouncement === 'string' && typeof siteAnnouncement !== 'undefined'){ 
+      siteAnnouncement = d.siteAnnouncement; 
+      if(typeof applyAnnouncement === 'function') applyAnnouncement(); 
+    }
+    if(d.adminPassword && typeof ADMIN !== 'undefined'){ ADMIN.password = d.adminPassword; }
+    if(typeof saveState === 'function') saveState();
   }, err => showFbError('meta', err));
 
-  // Presence (Realtime Database) — who's online right now
+  // Presence
   if(fbRtdb){
     if(fbUnsubPresence) fbUnsubPresence();
     const presenceRef = fbRtdb.ref('presence');
     const cb = snap => {
-      onlinePhones = new Set();
-      let onlineCount = 0, totalKnown = 0;
+      if(typeof onlinePhones !== 'undefined') onlinePhones = new Set();
+      let onlineCount = 0;
       snap.forEach(child => {
-        totalKnown++;
-        if(child.val() && child.val().online){ onlinePhones.add(child.key); onlineCount++; }
+        if(child.val() && child.val().online){ 
+          if(typeof onlinePhones !== 'undefined') onlinePhones.add(child.key); 
+          onlineCount++; 
+        }
       });
-      if(currentRole === 'admin'){
+      if(typeof currentRole !== 'undefined' && currentRole === 'admin'){
         const onlineEl = document.getElementById('stat-online');
         const offlineEl = document.getElementById('stat-offline');
+        const uLen = typeof users !== 'undefined' ? users.length : 0;
         if(onlineEl) onlineEl.textContent = onlineCount;
-        if(offlineEl) offlineEl.textContent = Math.max(users.length - onlineCount, 0);
-        renderUsersList();
+        if(offlineEl) offlineEl.textContent = Math.max(uLen - onlineCount, 0);
+        if(typeof renderUsersList === 'function') renderUsersList();
       }
       checkAdminOfflineForStandIn(snap);
     };
@@ -177,17 +174,14 @@ function startCloudListeners(){
     fbUnsubPresence = () => presenceRef.off('value', cb);
   }
 
-  // If admin is viewing an open chat thread, make sure it's subscribed
-  if(currentRole === 'admin' && openThreadPhone) subscribeToChat(openThreadPhone);
-  if(currentRole === 'user' && currentUser) subscribeToChat(currentUser.phone);
+  if(typeof currentRole !== 'undefined'){
+    if(currentRole === 'admin' && typeof openThreadPhone !== 'undefined' && openThreadPhone) subscribeToChat(openThreadPhone);
+    if(currentRole === 'user' && typeof currentUser !== 'undefined' && currentUser) subscribeToChat(currentUser.phone);
+  }
 }
 
 // -----------------------------------------------------------------
-// VISIBLE ERROR BANNER — cloud sync errors (e.g. Firestore permission
-// denied because Security Rules aren't set, or the database was never
-// created in the Firebase console) used to only show up in the browser
-// DevTools console, which most people never open. Now they show as a
-// clear on-page banner so the problem is obvious immediately.
+// VISIBLE ERROR BANNER
 // -----------------------------------------------------------------
 function showFbError(context, err){
   console.warn(context, err);
@@ -219,18 +213,19 @@ function showNewUserToast(u){
   if(!area) return;
   const div = document.createElement('div');
   div.className = 'new-user-toast';
-  div.innerHTML = `<span>🟢 New user logged in: <b>${escapeHtml(u.name)}</b> (${escapeHtml(u.phone)})</span>`;
+  const safeName = typeof escapeHtml === 'function' ? escapeHtml(u.name) : u.name;
+  const safePhone = typeof escapeHtml === 'function' ? escapeHtml(u.phone) : u.phone;
+  div.innerHTML = `<span>🟢 New user logged in: <b>${safeName}</b> (${safePhone})</span>`;
   const btn = document.createElement('button');
   btn.textContent = 'View Profile';
-  btn.onclick = () => viewUserProfile(u.phone);
+  btn.onclick = () => { if(typeof viewUserProfile === 'function') viewUserProfile(u.phone); };
   div.appendChild(btn);
   area.prepend(div);
   setTimeout(() => div.remove(), 15000);
 }
 
 // -----------------------------------------------------------------
-// PRESENCE — mark this device online, and let Firebase auto-flip it to
-// offline the instant the tab closes/disconnects (onDisconnect).
+// PRESENCE
 // -----------------------------------------------------------------
 function setMyPresence(id){
   if(!fbRtdb || !id) return;
@@ -242,6 +237,7 @@ function setMyPresence(id){
     }
   });
 }
+
 function clearMyPresence(){
   if(myPresenceRef){ myPresenceRef.set({ online:false, lastSeen: Date.now() }); }
   myPresenceRef = null;
@@ -249,14 +245,12 @@ function clearMyPresence(){
 window.addEventListener('beforeunload', clearMyPresence);
 
 // -----------------------------------------------------------------
-// PUSH LOCAL CHANGES → CLOUD (wraps script.js's existing functions so
-// nothing in script.js had to change — every local action also writes
-// to Firestore when cloud sync is connected).
+// PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
 function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
-function fbSaveMeta(){ if(fbReady) fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
+function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;
@@ -264,11 +258,23 @@ function subscribeToChat(phone){
     .onSnapshot(snap => {
       const msgs = [];
       snap.forEach(doc => msgs.push(doc.data()));
-      const name = (chatThreads[phone] && chatThreads[phone].name) || (users.find(u=>u.phone===phone)||{}).name || phone;
-      chatThreads[phone] = { name, messages: msgs };
-      saveState();
-      if(currentRole === 'user' && currentUser && currentUser.phone === phone) renderUserChatLog();
-      if(currentRole === 'admin'){ renderThreadList(); if(openThreadPhone === phone) renderAdminChatLog(); document.getElementById('stat-unread').textContent = countUnread(); }
+      let name = phone;
+      if(typeof chatThreads !== 'undefined' && chatThreads[phone] && chatThreads[phone].name) name = chatThreads[phone].name;
+      else if(typeof users !== 'undefined'){
+        const found = users.find(u=>u.phone===phone);
+        if(found && found.name) name = found.name;
+      }
+      if(typeof chatThreads !== 'undefined') chatThreads[phone] = { name, messages: msgs };
+      if(typeof saveState === 'function') saveState();
+      if(typeof currentRole !== 'undefined'){
+        if(currentRole === 'user' && typeof currentUser !== 'undefined' && currentUser && currentUser.phone === phone && typeof renderUserChatLog === 'function') renderUserChatLog();
+        if(currentRole === 'admin'){ 
+          if(typeof renderThreadList === 'function') renderThreadList(); 
+          if(typeof openThreadPhone !== 'undefined' && openThreadPhone === phone && typeof renderAdminChatLog === 'function') renderAdminChatLog(); 
+          const unreadEl = document.getElementById('stat-unread');
+          if(unreadEl && typeof countUnread === 'function') unreadEl.textContent = countUnread(); 
+        }
+      }
     }, err => showFbError('chat', err));
 }
 
@@ -278,24 +284,18 @@ function fbSendChatMessage(phone, msg){
 }
 
 // -----------------------------------------------------------------
-// AI STAND-IN — when enabled and the admin's presence is offline, the
-// assistant auto-replies to new user messages so the site is never
-// "unmanned". Uses the existing Gemini key if the admin has set one,
-// otherwise falls back to a helpful canned reply.
+// AI STAND-IN
 // -----------------------------------------------------------------
 function toggleAiStandIn(){
-  const on = document.getElementById('ai-standin-toggle').checked;
+  const el = document.getElementById('ai-standin-toggle');
+  if(!el) return;
+  const on = el.checked;
   localStorage.setItem(AI_STANDIN_KEY, on ? '1' : '0');
-  document.getElementById('ai-standin-status').textContent = on
-    ? 'AI stand-in is ON — it will answer users when you are offline.'
-    : 'AI stand-in is OFF.';
+  const st = document.getElementById('ai-standin-status');
+  if(st){
+    st.textContent = on ? 'AI stand-in is ON — it will answer users when you are offline.' : 'AI stand-in is OFF.';
+  }
 }
-(function restoreAiStandInToggle(){
-  document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('ai-standin-toggle');
-    if(el) el.checked = localStorage.getItem(AI_STANDIN_KEY) === '1';
-  });
-})();
 
 let lastAdminOnline = true;
 function checkAdminOfflineForStandIn(presenceSnap){
@@ -305,7 +305,7 @@ function checkAdminOfflineForStandIn(presenceSnap){
 
 async function maybeAiAutoReply(phone, userMessageText){
   if(localStorage.getItem(AI_STANDIN_KEY) !== '1') return;
-  if(lastAdminOnline) return; // admin is here, let them answer
+  if(lastAdminOnline) return; 
   let replyText;
   const key = localStorage.getItem('atw_gemini_key');
   if(key){
@@ -319,7 +319,8 @@ async function maybeAiAutoReply(phone, userMessageText){
     }catch(e){ console.warn('Gemini auto-reply failed', e); }
   }
   if(!replyText){
-    replyText = currentLang==='ur'
+    const lang = typeof currentLang !== 'undefined' ? currentLang : 'ur';
+    replyText = lang==='ur'
       ? 'Assalam o Alaikum! Admin abhi offline hain, main AI Assistant aapki madad kar raha hoon. Aapka message note kar liya gaya hai, Admin online aatay hi aapko reply karain gay.'
       : "Hi! Admin is offline right now — I'm the AI Assistant standing in. Your message has been noted and Admin will reply as soon as they're back online.";
   }
@@ -327,100 +328,145 @@ async function maybeAiAutoReply(phone, userMessageText){
 }
 
 // -----------------------------------------------------------------
-// WRAP script.js FUNCTIONS — additive hooks, called after the original
-// logic runs, so local-only mode keeps working even if Firebase isn't
-// configured.
+// WRAP script.js FUNCTIONS
 // -----------------------------------------------------------------
 function wrapForCloudSync(){
-  const _registerUser = window.registerUser;
-  window.registerUser = function(){
-    const before = users.length;
-    _registerUser();
-    if(fbReady && users.length > before) fbSaveUser(users[users.length - 1]);
-  };
+  if(window.registerUser){
+    const _registerUser = window.registerUser;
+    window.registerUser = function(){
+      const before = typeof users !== 'undefined' ? users.length : 0;
+      _registerUser();
+      if(fbReady && typeof users !== 'undefined' && users.length > before) fbSaveUser(users[users.length - 1]);
+    };
+  }
 
-  const _toggleBlock = window.toggleBlock;
-  window.toggleBlock = function(phone){
-    _toggleBlock(phone);
-    const u = users.find(x => x.phone === phone);
-    if(fbReady && u) fbSaveUser(u);
-  };
+  if(window.toggleBlock){
+    const _toggleBlock = window.toggleBlock;
+    window.toggleBlock = function(phone){
+      _toggleBlock(phone);
+      if(fbReady && typeof users !== 'undefined'){
+        const u = users.find(x => x.phone === phone);
+        if(u) fbSaveUser(u);
+      }
+    };
+  }
 
-  const _handleAdminUpload = window.handleAdminUpload;
-  window.handleAdminUpload = function(e){
-    const before = uploads.length;
-    _handleAdminUpload(e);
-    setTimeout(() => { if(fbReady && uploads.length > before) fbSaveUpload(uploads[uploads.length - 1]); }, 300);
-  };
-  const _setUploadStatus = window.setUploadStatus;
-  window.setUploadStatus = function(id, status){
-    _setUploadStatus(id, status);
-    const u = uploads.find(x => x.id === id);
-    if(fbReady && u) fbSaveUpload(u);
-  };
-  const _deleteUpload = window.deleteUpload;
-  window.deleteUpload = function(id){
-    _deleteUpload(id);
-    if(fbReady) fbDeleteUpload(id);
-  };
+  if(window.handleAdminUpload){
+    const _handleAdminUpload = window.handleAdminUpload;
+    window.handleAdminUpload = function(e){
+      const before = typeof uploads !== 'undefined' ? uploads.length : 0;
+      _handleAdminUpload(e);
+      setTimeout(() => { if(fbReady && typeof uploads !== 'undefined' && uploads.length > before) fbSaveUpload(uploads[uploads.length - 1]); }, 300);
+    };
+  }
 
-  const _changeAdminPassword = window.changeAdminPassword;
-  window.changeAdminPassword = function(){
-    const before = ADMIN.password;
-    _changeAdminPassword();
-    if(fbReady && ADMIN.password !== before) fbSaveMeta();
-  };
-  const _saveAnnouncement = window.saveAnnouncement;
-  window.saveAnnouncement = function(){ _saveAnnouncement(); if(fbReady) fbSaveMeta(); };
-  const _clearAnnouncement = window.clearAnnouncement;
-  window.clearAnnouncement = function(){ _clearAnnouncement(); if(fbReady) fbSaveMeta(); };
+  if(window.setUploadStatus){
+    const _setUploadStatus = window.setUploadStatus;
+    window.setUploadStatus = function(id, status){
+      _setUploadStatus(id, status);
+      if(fbReady && typeof uploads !== 'undefined'){
+        const u = uploads.find(x => x.id === id);
+        if(u) fbSaveUpload(u);
+      }
+    };
+  }
 
-  const _userSendMessage = window.userSendMessage;
-  window.userSendMessage = function(){
-    const input = document.getElementById('user-chat-input');
-    const val = input.value.trim();
-    if(!val || !currentUser) return;
-    if(fbReady){
-      fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
-      input.value = '';
-      maybeAiAutoReply(currentUser.phone, val);
-    } else {
-      _userSendMessage();
-    }
-  };
-  const _adminSendMessage = window.adminSendMessage;
-  window.adminSendMessage = function(){
-    const input = document.getElementById('admin-chat-input');
-    const val = input.value.trim();
-    if(!val || !openThreadPhone) return;
-    if(fbReady){
-      fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
-      input.value = '';
-    } else {
-      _adminSendMessage();
-    }
-  };
+  if(window.deleteUpload){
+    const _deleteUpload = window.deleteUpload;
+    window.deleteUpload = function(id){
+      _deleteUpload(id);
+      if(fbReady) fbDeleteUpload(id);
+    };
+  }
 
-  const _openThreadFor = window.openThreadFor;
-  window.openThreadFor = function(phone){ _openThreadFor(phone); if(fbReady) subscribeToChat(phone); };
+  if(window.changeAdminPassword){
+    const _changeAdminPassword = window.changeAdminPassword;
+    window.changeAdminPassword = function(){
+      const before = typeof ADMIN !== 'undefined' ? ADMIN.password : '';
+      _changeAdminPassword();
+      if(fbReady && typeof ADMIN !== 'undefined' && ADMIN.password !== before) fbSaveMeta();
+    };
+  }
 
-  const _beginLogin = window.beginLogin;
-  window.beginLogin = function(role, user){
-    _beginLogin(role, user);
-    if(fbReady){
-      setMyPresence(role === 'admin' ? 'admin' : user.phone);
-      if(role === 'user') subscribeToChat(user.phone);
-    }
-  };
-  const _logout = window.logout;
-  window.logout = function(){ clearMyPresence(); _logout(); };
+  if(window.saveAnnouncement){
+    const _saveAnnouncement = window.saveAnnouncement;
+    window.saveAnnouncement = function(){ _saveAnnouncement(); if(fbReady) fbSaveMeta(); };
+  }
+
+  if(window.clearAnnouncement){
+    const _clearAnnouncement = window.clearAnnouncement;
+    window.clearAnnouncement = function(){ _clearAnnouncement(); if(fbReady) fbSaveMeta(); };
+  }
+
+  if(window.userSendMessage){
+    const _userSendMessage = window.userSendMessage;
+    window.userSendMessage = function(){
+      const input = document.getElementById('user-chat-input');
+      const val = input ? input.value.trim() : '';
+      if(!val || typeof currentUser === 'undefined' || !currentUser) return;
+      if(fbReady){
+        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
+        if(input) input.value = '';
+        maybeAiAutoReply(currentUser.phone, val);
+      } else {
+        _userSendMessage();
+      }
+    };
+  }
+
+  if(window.adminSendMessage){
+    const _adminSendMessage = window.adminSendMessage;
+    window.adminSendMessage = function(){
+      const input = document.getElementById('admin-chat-input');
+      const val = input ? input.value.trim() : '';
+      if(!val || typeof openThreadPhone === 'undefined' || !openThreadPhone) return;
+      if(fbReady){
+        fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
+        if(input) input.value = '';
+      } else {
+        _adminSendMessage();
+      }
+    };
+  }
+
+  if(window.openThreadFor){
+    const _openThreadFor = window.openThreadFor;
+    window.openThreadFor = function(phone){ _openThreadFor(phone); if(fbReady) subscribeToChat(phone); };
+  }
+
+  if(window.beginLogin){
+    const _beginLogin = window.beginLogin;
+    window.beginLogin = function(role, user){
+      _beginLogin(role, user);
+      if(fbReady){
+        setMyPresence(role === 'admin' ? 'admin' : user.phone);
+        if(role === 'user') subscribeToChat(user.phone);
+      }
+    };
+  }
+
+  if(window.logout){
+    const _logout = window.logout;
+    window.logout = function(){ clearMyPresence(); _logout(); };
+  }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// -----------------------------------------------------------------
+// INITIALIZATION
+// -----------------------------------------------------------------
+function startAppSync(){
   wrapForCloudSync();
   const cfg = loadFirebaseConfig();
   if(cfg){
     fillFirebaseConfigForm(cfg);
     initFirebase();
   }
-});
+  const el = document.getElementById('ai-standin-toggle');
+  if(el) el.checked = localStorage.getItem(AI_STANDIN_KEY) === '1';
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startAppSync);
+} else {
+  startAppSync();
+}
