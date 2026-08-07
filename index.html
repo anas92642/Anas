@@ -30,9 +30,10 @@
       <h1 id="typewriter-heading"></h1>
       <p class="sub" data-i18n="portalSub">Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.</p>
 
-      <div class="portal-flex-column">
-        <div class="portal-hero-circle"><img src="assets/hero-arms-crossed.png" alt="Anas Technical World"></div>
-        <div class="card-shell">
+      <div class="portal-flex">
+        <div class="portal-hero"><img src="assets/hero-arms-crossed.png" alt="Anas Technical World"></div>
+
+        <div class="card-shell" style="margin:0;">
           <div class="card-header">
             <div class="badge-dot">ATW</div>
             <h2 data-i18n="accessTitle">Access Card</h2>
@@ -186,18 +187,11 @@
         <div id="user-list-area"></div>
       </div>
 
-      <div class="section" id="online-users-section">
-        <div class="list-header"><h3>// Online Users</h3><span id="online-list-count">0 online</span></div>
-        <div id="online-user-list-area"></div>
-      </div>
-
-
       <div class="section" id="uploads-section">
         <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
         <div class="upload-drop">
           <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
-          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()">+ <span data-i18n="btnUploadFile">Upload File</span></button>
-          <button type="button" class="photo-btn" onclick="addAdminLink()">+ Add Link</button>
+          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
         <div id="admin-uploads-area"></div>
@@ -257,13 +251,46 @@
             </label>
             <div class="success-msg" id="ai-standin-status"></div>
           </div>
-          <div class="settings-card">
-            <h4 data-i18n="systemControlTitle">// System Control</h4>
-            <div class="note" data-i18n="systemControlNote">Ye actions sab connected users par asar andaaz hongay (Firebase connection zaroori hai). "Restart" karne se sab users logout ho jayenge aur unki screen reload ho jayegi.</div>
-            <button class="btn-primary ghost" onclick="adminSystemRestart()" data-i18n="btnSystemRestart">System Restart (Logout & Reload All)</button>
-            <div class="success-msg" id="system-control-status"></div>
-          </div>
+        </div>
+      </div>
 
+      <div class="section" id="ai-section">
+        <div class="ai-command-box">
+          <h4 data-i18n="aiCmdTitle">// Quick Site Commands</h4>
+          <div class="note" data-i18n="aiCmdNote">Ye rule-based command box hai — site ko turant control karta hai. Try karain: "block Ahmed", "publish invoice", "delete photo1", "announcement lagao: naya update aa gaya", "accent green karo".</div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-command-input" data-i18n-ph="cmdPh" placeholder="Command likhain...">
+            <button onclick="runAiCommandFromBox()" data-i18n="btnRun">Run</button>
+          </div>
+          <div class="ai-log-out" id="ai-log-out" data-i18n="ready">Ready.</div>
+        </div>
+
+        <div class="ai-command-box">
+          <h4 data-i18n="geminiTitle">// Gemini AI Assistant</h4>
+          <div class="note" data-i18n="geminiNote">Apni Google Gemini API key daal kar admin website update karne, content likhwane ya ideas lene ke liye AI se madad le sakta hai. Key sirf isi browser mein (local) save hoti hai aur seedha Google ko jaati hai.</div>
+          <div class="field" style="margin-bottom:10px;">
+            <input type="password" id="gemini-key-input" data-i18n-ph="geminiKeyPh" placeholder="Gemini API Key (AIza...)">
+          </div>
+          <div class="ai-input-row">
+            <textarea id="gemini-prompt-input" rows="2" data-i18n-ph="geminiPromptPh" placeholder="e.g. Eid sale ke liye ek announcement likho"></textarea>
+            <button onclick="askGemini()" data-i18n="btnAsk">Ask</button>
+          </div>
+          <div class="ai-log-out" id="gemini-log-out" data-i18n="geminiReady">Gemini se pochne ke liye upar apni API key daalain.</div>
+          <button class="btn-primary small" style="margin-top:10px;" onclick="runGeminiReplyAsCommand()" data-i18n="btnRunGeminiAsCmd">Is jawab ko site command ki tarha chalayen</button>
+        </div>
+      </div>
+
+      <div class="section" id="backup-section">
+        <div class="settings-card">
+          <h4 data-i18n="backupTitle">// Backup &amp; Restore</h4>
+          <div class="note" data-i18n="backupNote">Update karne se pehle backup download kar lain. Agar update ke doran koi error aa jaye, to backup file wapas import kar ke sab data restore ho jayega.</div>
+          <div class="backup-actions">
+            <button class="btn-primary small" onclick="exportBackup()" data-i18n="btnExportBackup">⬇ Download Backup</button>
+            <button class="btn-primary small" onclick="document.getElementById('backup-import-input').click()" data-i18n="btnImportBackup">⬆ Restore From Backup</button>
+            <button class="btn-outline-amber" onclick="restoreAutoBackup()" data-i18n="btnAutoRestore">↺ Restore Last Auto-Backup</button>
+          </div>
+          <input type="file" id="backup-import-input" accept="application/json" style="display:none" onchange="importBackup(event)">
+          <div class="success-msg" id="backup-msg"></div>
         </div>
       </div>
 
@@ -287,15 +314,22 @@
   </div>
 </div>
 
-<!-- ============ LINK PREVIEW MODAL ============ -->
-<div class="modal-overlay" id="link-modal">
-  <div class="modal-box wide">
-    <div class="link-header">
-      <h4 id="link-modal-title">Link</h4>
-      <button class="close-btn-wide" onclick="closeLinkModal()">✕</button>
-    </div>
-    <div class="link-frame-wrapper">
-      <iframe id="link-iframe" src="about:blank" frameborder="0" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+<!-- ============ VOICE ASSISTANT WIDGET ============ -->
+<div id="assistant-widget">
+  <div class="mic-btn" id="mic-btn" onclick="toggleListening()">🎙</div>
+  <div class="assistant-panel" id="assistant-panel">
+    <div class="ap-title"><span class="dot"></span> <span data-i18n="assistantTitle">Rehbar Assistant</span></div>
+    <div class="assistant-log" id="assistant-log"></div>
+    <div class="assistant-hint" id="assistant-hint" data-i18n="assistantHint">Mic dabain aur bolain — jaise "logout karo", "dashboard".</div>
+  </div>
+
+  <div class="chat-btn" id="chat-btn" onclick="toggleChatPanel()">💬<span class="badge" id="chat-badge">0</span></div>
+  <div class="chat-panel" id="chat-panel">
+    <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
+    <div class="chat-log" id="user-chat-log"></div>
+    <div class="ai-input-row">
+      <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
+      <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
     </div>
   </div>
 </div>

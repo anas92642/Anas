@@ -1,5 +1,10 @@
 // =================================================================
 // FIREBASE CLOUD SYNC (additive layer — loads AFTER script.js)
+// Fixed and Fully Configured for Anas Technical World
+// =================================================================
+
+const FB_CONFIG_KEY = 'atw_firebase_config';
+const AI_STANDIN_KEY = 'atw_ai_standin_enabled';
 
 // -----------------------------------------------------------------
 // BUILT-IN CONFIG
@@ -14,9 +19,8 @@ const DEFAULT_FB_CONFIG = {
   databaseURL: "https://anas-tech-6ff0b-default-rtdb.firebaseio.com"
 };
 
-const FB_CONFIG_KEY = 'atw_firebase_config';
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
-let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null, fbUnsubSystem = null;
+let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null;
 let fbChatUnsubs = {}; 
 let fbKnownUserPhones = new Set();
 let myPresenceRef = null;
@@ -164,27 +168,11 @@ function startCloudListeners(){
         if(offlineEl) offlineEl.textContent = Math.max(uLen - onlineCount, 0);
         if(typeof renderUsersList === 'function') renderUsersList();
       }
+      checkAdminOfflineForStandIn(snap);
     };
     presenceRef.on('value', cb);
     fbUnsubPresence = () => presenceRef.off('value', cb);
   }
-  
-  // System-wide actions listener
-  if(fbUnsubSystem) fbUnsubSystem();
-  fbUnsubSystem = fbDb.collection('meta').doc('system').onSnapshot(doc => {
-    if(!doc.exists) return;
-    const d = doc.data();
-    if(d.action === 'restart' && d.ts > (Date.now() - 10000)) { // action in last 10s
-      if(typeof currentRole !== 'undefined' && currentRole !== 'admin') {
-        // For non-admin users, clear session and reload
-        if(typeof clearMyPresence === 'function') clearMyPresence();
-        if(typeof saveSession === 'function') {
-          localStorage.removeItem('atw_session_v1'); // Hard logout
-          location.reload();
-        }
-      }
-    }
-  }, err => showFbError('system', err));
 
   if(typeof currentRole !== 'undefined'){
     if(currentRole === 'admin' && typeof openThreadPhone !== 'undefined' && openThreadPhone) subscribeToChat(openThreadPhone);
@@ -260,12 +248,9 @@ window.addEventListener('beforeunload', clearMyPresence);
 // PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
 function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
-function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).delete().catch(e=>console.warn(e)); }
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
-function fbTriggerSystemAction(actionName){ if(fbReady) fbDb.collection('meta').doc('system').set({ action: actionName, ts: Date.now() }).catch(e=>console.warn(e)); }
-function fbSaveChatThread(phone, thread){ if(fbReady) fbDb.collection('chats').doc(phone).set(thread).catch(e=>console.warn(e)); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;
@@ -296,6 +281,50 @@ function subscribeToChat(phone){
 function fbSendChatMessage(phone, msg){
   if(!fbReady) return;
   fbDb.collection('chats').doc(phone).collection('messages').add(Object.assign({}, msg, { ts: Date.now() })).catch(e=>console.warn(e));
+}
+
+// -----------------------------------------------------------------
+// AI STAND-IN
+// -----------------------------------------------------------------
+function toggleAiStandIn(){
+  const el = document.getElementById('ai-standin-toggle');
+  if(!el) return;
+  const on = el.checked;
+  localStorage.setItem(AI_STANDIN_KEY, on ? '1' : '0');
+  const st = document.getElementById('ai-standin-status');
+  if(st){
+    st.textContent = on ? 'AI stand-in is ON — it will answer users when you are offline.' : 'AI stand-in is OFF.';
+  }
+}
+
+let lastAdminOnline = true;
+function checkAdminOfflineForStandIn(presenceSnap){
+  const adminNode = presenceSnap.child('admin');
+  lastAdminOnline = adminNode.exists() && adminNode.val() && adminNode.val().online;
+}
+
+async function maybeAiAutoReply(phone, userMessageText){
+  if(localStorage.getItem(AI_STANDIN_KEY) !== '1') return;
+  if(lastAdminOnline) return; 
+  let replyText;
+  const key = localStorage.getItem('atw_gemini_key');
+  if(key){
+    try{
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{ parts:[{ text: 'You are a friendly support assistant for "Anas Technical World". Reply briefly (2-3 sentences) in the same language the user used (Roman Urdu or English) to this customer message: ' + userMessageText }]}]})
+      });
+      const data = await res.json();
+      replyText = data && data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text;
+    }catch(e){ console.warn('Gemini auto-reply failed', e); }
+  }
+  if(!replyText){
+    const lang = typeof currentLang !== 'undefined' ? currentLang : 'ur';
+    replyText = lang==='ur'
+      ? 'Assalam o Alaikum! Admin abhi offline hain, main AI Assistant aapki madad kar raha hoon. Aapka message note kar liya gaya hai, Admin online aatay hi aapko reply karain gay.'
+      : "Hi! Admin is offline right now — I'm the AI Assistant standing in. Your message has been noted and Admin will reply as soon as they're back online.";
+  }
+  fbSendChatMessage(phone, { from:'ai', text: replyText, time: new Date().toLocaleTimeString(), read:true });
 }
 
 // -----------------------------------------------------------------
@@ -376,8 +405,9 @@ function wrapForCloudSync(){
       const val = input ? input.value.trim() : '';
       if(!val || typeof currentUser === 'undefined' || !currentUser) return;
       if(fbReady){
-        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false, ts: Date.now() });
+        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
         if(input) input.value = '';
+        maybeAiAutoReply(currentUser.phone, val);
       } else {
         _userSendMessage();
       }
@@ -391,7 +421,7 @@ function wrapForCloudSync(){
       const val = input ? input.value.trim() : '';
       if(!val || typeof openThreadPhone === 'undefined' || !openThreadPhone) return;
       if(fbReady){
-        fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true, ts: Date.now() });
+        fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
         if(input) input.value = '';
       } else {
         _adminSendMessage();
@@ -431,6 +461,8 @@ function startAppSync(){
     fillFirebaseConfigForm(cfg);
     initFirebase();
   }
+  const el = document.getElementById('ai-standin-toggle');
+  if(el) el.checked = localStorage.getItem(AI_STANDIN_KEY) === '1';
 }
 
 if (document.readyState === 'loading') {
