@@ -1,107 +1,343 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ur">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Management & Live Chat Portal</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anas Technical World // Access Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div id="toast-container" class="toast-container"></div>
+<body data-lang="ur">
 
-    <nav class="navbar">
-        <div class="logo">⚡ AdminPortal</div>
-        <div class="nav-items">
-            <span id="user-status-display">Not Logged In</span>
-            <button id="auth-btn" onclick="toggleAuthModal()">Login / Register</button>
-        </div>
-    </nav>
+<div class="bg-photo"></div>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="scanline"></div>
 
-    <div class="main-container">
-        <!-- Auth Modal -->
-        <div id="auth-modal" class="modal hidden">
-            <div class="modal-content">
-                <span class="close-btn" onclick="toggleAuthModal()">&times;</span>
-                <h2 id="modal-title">User Sign Up</h2>
-                <form id="auth-form" onsubmit="handleAuth(event)">
-                    <input type="text" id="user-name" placeholder="Full Name" required>
-                    <input type="tel" id="user-phone" placeholder="Phone Number" required>
-                    <input type="password" id="user-password" placeholder="Password" required>
-                    <button type="submit" class="btn-primary">Submit</button>
-                </form>
+<div class="lang-toggle">
+  <button id="lang-btn-ur" onclick="setLanguage('ur')">اردو</button>
+  <button id="lang-btn-en" onclick="setLanguage('en')">EN</button>
+</div>
+
+<div class="app">
+
+  <!-- ============ PORTAL SELECT ============ -->
+  <div class="screen active" id="screen-portal">
+    <div class="brandmark"><div class="led"></div><span data-i18n="brand">SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL</span></div>
+    <div class="announcement" id="portal-announcement"></div>
+    <div class="portal-wrap">
+      <h1 id="typewriter-heading"></h1>
+      <p class="sub" data-i18n="portalSub">Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.</p>
+
+      <div class="portal-flex">
+        <div class="portal-hero"><img src="assets/hero-arms-crossed.png" alt="Anas Technical World"></div>
+
+        <div class="card-shell" style="margin:0;">
+          <div class="card-header">
+            <div class="badge-dot">ATW</div>
+            <h2 data-i18n="accessTitle">Access Card</h2>
+            <p data-i18n="accessSub">Neeche apna role select karain</p>
+          </div>
+
+          <div class="role-tabs">
+            <button class="active" id="role-tab-user" onclick="switchRoleTab('user')" data-i18n="tabUser">User</button>
+            <button id="role-tab-admin" onclick="switchRoleTab('admin')" data-i18n="tabAdmin">Admin</button>
+          </div>
+
+          <!-- USER PANE -->
+          <div id="pane-user">
+            <div class="tabs">
+              <button class="active" id="tab-register" onclick="switchUserTab('register')" data-i18n="btnRegister">Register</button>
+              <button id="tab-login" onclick="switchUserTab('login')" data-i18n="btnLogin">Login</button>
             </div>
-        </div>
 
-        <!-- Admin Dashboard -->
-        <div class="dashboard">
-            <h1>Admin Management Dashboard</h1>
-            
-            <div class="grid-layout">
-                <!-- User Log & Control Panel -->
-                <div class="card">
-                    <h2>👥 System Users Log</h2>
-                    <div id="users-list" class="users-list">
-                        <!-- User cards will render dynamically here -->
-                    </div>
+            <div id="register-form">
+              <div class="field">
+                <label data-i18n="lblName">Naam (Name)</label>
+                <input type="text" id="reg-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
+              </div>
+              <div class="field">
+                <label data-i18n="lblPhone">Phone Number</label>
+                <input type="tel" id="reg-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
+              </div>
+              <div class="field">
+                <label data-i18n="lblPassword">Password</label>
+                <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
+              </div>
+              <div class="photo-field">
+                <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
+                <div>
+                  <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
+                  <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
                 </div>
-
-                <!-- Live Chat Section -->
-                <div class="card">
-                    <h2>💬 Support Live Chat</h2>
-                    <div class="chat-layout">
-                        <div id="chat-threads" class="chat-threads">
-                            <!-- Chat user list -->
-                        </div>
-                        <div class="chat-box">
-                            <div id="chat-messages" class="chat-messages">
-                                <p class="placeholder-text">Select a conversation to start chatting</p>
-                            </div>
-                            <div class="chat-input-row">
-                                <input type="text" id="admin-chat-input" placeholder="Type a response...">
-                                <button onclick="sendAdminMessage()" class="btn-primary">Send</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              </div>
+              <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register &amp; Continue</button>
+              <div class="error-msg" id="register-error"></div>
             </div>
 
-            <!-- Settings / Firebase Configuration -->
-            <div class="card settings-card">
-                <h2>⚙️ Cloud Sync & Firebase Settings</h2>
-                <form id="firebase-config-form" onsubmit="saveFirebaseConfig(event)">
-                    <div class="input-grid">
-                        <input type="text" id="fb-apiKey" placeholder="API Key" required>
-                        <input type="text" id="fb-authDomain" placeholder="Auth Domain" required>
-                        <input type="text" id="fb-databaseURL" placeholder="Database URL" required>
-                        <input type="text" id="fb-projectId" placeholder="Project ID" required>
-                    </div>
-                    <button type="submit" class="btn-accent">Connect Cloud Sync</button>
-                </form>
+            <div id="login-form" style="display:none;">
+              <div class="field">
+                <label data-i18n="lblPhone">Phone Number</label>
+                <input type="tel" id="login-phone" data-i18n-ph="phLoginPhone" placeholder="Apna registered phone number">
+              </div>
+              <div class="field">
+                <label data-i18n="lblPassword">Password</label>
+                <input type="password" id="login-password" data-i18n-ph="phPassword" placeholder="••••••••">
+              </div>
+              <button class="btn-primary" onclick="userLogin()" data-i18n="btnLogin">Login</button>
+              <div class="error-msg" id="login-error"></div>
+              <div class="hint"><span data-i18n="noAccount">Account nahi hai?</span> <b onclick="switchUserTab('register')" data-i18n="btnRegister">Register karain</b></div>
             </div>
+          </div>
+
+          <!-- ADMIN PANE -->
+          <div id="pane-admin" style="display:none;">
+            <div class="field">
+              <label data-i18n="lblPassword">Password</label>
+              <input type="password" id="admin-password" placeholder="••••••••">
+            </div>
+            <button class="btn-primary" onclick="adminLogin()" data-i18n="btnAdminLogin">Login as Admin</button>
+            <div class="error-msg" id="admin-error"></div>
+          </div>
+
+          <div style="margin-top:16px;">
+            <a class="btn-whatsapp" id="portal-whatsapp" href="#" target="_blank">💬 <span data-i18n="waChat">WhatsApp par baat karain</span></a>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 
-    <!-- User Floating Chat Widget -->
-    <div id="user-chat-widget" class="floating-chat-widget">
-        <button class="chat-toggle-btn" onclick="toggleUserChat()">💬</button>
-        <div id="user-chat-window" class="chat-window hidden">
-            <div class="chat-header">
-                <span>Customer Support</span>
-                <button onclick="toggleUserChat()">✕</button>
-            </div>
-            <div id="user-chat-messages" class="chat-messages"></div>
-            <div class="chat-input-row">
-                <input type="text" id="user-chat-input" placeholder="Type your message...">
-                <button onclick="sendUserMessage()" class="btn-primary">Send</button>
-            </div>
+  <!-- ============ LOADING ============ -->
+  <div class="screen" id="screen-loading">
+    <div class="loading-wrap">
+      <div class="lw-title" data-i18n="authenticating">// authenticating</div>
+      <div class="boot-lines" id="boot-lines"></div>
+      <div class="progress-track"><div class="progress-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME (USER) ============ -->
+  <div class="screen" id="screen-welcome-user">
+    <div class="welcome-wrap">
+      <div class="topbar">
+        <div class="who">
+          <div class="avatar" id="wu-avatar-mini"></div>
+          <div>
+            <div class="name" id="wu-name-mini"></div>
+            <div class="role" data-i18n="registeredUser">Registered User</div>
+          </div>
         </div>
-    </div>
+        <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+      </div>
 
-    <script src="firebase-sync.js"></script>
-    <script src="script.js"></script>
+      <div class="welcome-circle-wrap" id="welcome-circle-block">
+        <div class="welcome-circle"><img src="assets/hero-adjusting-tie.png" alt="Anas Technical World"></div>
+        <h2 data-i18n="welcomeBrand">Welcome to Anas Technical World</h2>
+        <div class="greet-ur">السلام علیکم</div>
+        <p data-i18n="welcomeSubtext">Aapka digital access card taiyar hai.</p>
+      </div>
+
+      <div class="id-card" id="wu-idcard"></div>
+
+      <div class="section" id="community-section">
+        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Updates</h3><span id="community-count">0 files</span></div>
+        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;" data-i18n="adminUpdatesNote">Ye files sirf Admin upload karta hai — aap yahan sirf dekh aur download kar saktay hain.</p>
+        <div id="community-area"></div>
+      </div>
+
+      <div style="margin-top:26px;">
+        <a class="btn-whatsapp" id="user-whatsapp" href="#" target="_blank">💬 <span data-i18n="waAdminChat">Admin se WhatsApp par baat karain</span></a>
+      </div>
+
+      <div class="contact-line"><span data-i18n="supportLine">Support ke liye Admin se rabta karain:</span> <a href="tel:+923074499097">+92 307 4499097</a></div>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME (ADMIN DASHBOARD) ============ -->
+  <div class="screen" id="screen-welcome-admin">
+    <div class="welcome-wrap">
+      <div class="topbar">
+        <div class="who">
+          <div class="avatar"><img src="assets/hero-arms-crossed.png" alt="Admin"></div>
+          <div>
+            <div class="name" id="admin-name-label">Anas Ishaq</div>
+            <div class="role" id="admin-role-label">Administrator · ERP 92642</div>
+          </div>
+        </div>
+        <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+      </div>
+      <div class="welcome-hero" style="margin-bottom:22px;">
+        <div class="eyebrow" data-i18n="accessGranted">// Access Granted</div>
+        <h1 data-i18n="welcomeBackAdmin">Welcome back, Anas</h1>
+        <p data-i18n="adminSubtext">Yahan sab registered users, uploads aur chat ka record hai.</p>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="num" id="stat-total">0</div><div class="lbl" data-i18n="totalUsers">Total Users</div></div>
+        <div class="stat"><div class="num" id="stat-uploads">0</div><div class="lbl" data-i18n="totalUploads">Total Uploads</div></div>
+        <div class="stat"><div class="num" id="stat-unread">0</div><div class="lbl" data-i18n="unreadMsgs">Unread Messages</div></div>
+        <div class="stat"><div class="num" id="stat-online" style="color:var(--green);">0</div><div class="lbl">Online Now</div></div>
+        <div class="stat"><div class="num" id="stat-offline">0</div><div class="lbl">Offline</div></div>
+      </div>
+      <div id="new-user-toast-area"></div>
+
+      <div class="section" id="users-section">
+        <div class="list-header"><h3 data-i18n="usersLog">// System_Users.log</h3><span id="list-count">0 records</span></div>
+        <div id="user-list-area"></div>
+      </div>
+
+      <div class="section" id="uploads-section">
+        <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
+        <div class="upload-drop">
+          <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
+          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
+          <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
+        </div>
+        <div id="admin-uploads-area"></div>
+      </div>
+
+      <div class="section" id="chat-section">
+        <div class="list-header"><h3 data-i18n="liveChatLog">// Live Chat</h3><span id="chat-count-label">0 conversations</span></div>
+        <p style="font-family:var(--font-m); font-size:11px; color:var(--dim); margin-bottom:12px;" data-i18n="chatDeviceNote">Note: ye chat isi browser/device par save hoti hai (koi backend server nahi hai). Alag device se real live chat ke liye backend (jaise Firebase) chahiye hoga.</p>
+        <div class="chat-threads" id="admin-thread-list"></div>
+        <div class="admin-chat-box" id="admin-chat-box" style="display:none;">
+          <div class="cp-title" id="admin-chat-with"></div>
+          <div class="chat-log" id="admin-chat-log"></div>
+          <div class="ai-input-row">
+            <input type="text" id="admin-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
+            <button onclick="adminSendMessage()" data-i18n="btnSend">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="settings-section">
+        <div class="list-header"><h3 data-i18n="settingsLog">// Settings</h3></div>
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h4 data-i18n="changePw">Change Admin Password</h4>
+            <div class="field"><label data-i18n="curPw">Current Password</label><input type="password" id="pw-current" placeholder="••••••••"></div>
+            <div class="field"><label data-i18n="newPw">New Password</label><input type="password" id="pw-new" placeholder="••••••••"></div>
+            <div class="field"><label data-i18n="confirmPw">Confirm New Password</label><input type="password" id="pw-confirm" placeholder="••••••••"></div>
+            <button class="btn-primary" onclick="changeAdminPassword()" data-i18n="btnUpdatePw">Update Password</button>
+            <div class="error-msg" id="pw-error"></div>
+            <div class="success-msg" id="pw-success"></div>
+          </div>
+          <div class="settings-card">
+            <h4 data-i18n="siteAnn">Site Announcement</h4>
+            <div class="field"><label data-i18n="annLabel">Message (portal page par sab ko dikhegi)</label><input type="text" id="announcement-input" data-i18n-ph="annPh" placeholder="e.g. System maintenance at 10 PM"></div>
+            <button class="btn-primary" onclick="saveAnnouncement()" data-i18n="btnSaveAnn">Save Announcement</button>
+            <button class="btn-primary ghost" style="margin-top:8px;" onclick="clearAnnouncement()" data-i18n="btnClearAnn">Clear Announcement</button>
+            <div class="success-msg" id="ann-success"></div>
+          </div>
+          <div class="settings-card" id="cloud-sync-card">
+            <h4>// Cloud Sync (Firebase) — required for real multi-device sync</h4>
+            <div class="note">Har user ka data ab tak sirf usi browser mein save hota tha. Ye connect karne ke baad — total users, uploads, live chat, online/offline status — sab devices ke darmiyan real-time sync ho jayega. Free Firebase project banain (console.firebase.google.com), Firestore Database + Realtime Database enable karain, phir "Project settings → General → Your apps → SDK config" se ye values yahan paste karain.</div>
+            <div class="field"><label>API Key</label><input type="text" id="fb-apiKey" placeholder="AIzaSy..."></div>
+            <div class="field"><label>Auth Domain</label><input type="text" id="fb-authDomain" placeholder="yourproject.firebaseapp.com"></div>
+            <div class="field"><label>Project ID</label><input type="text" id="fb-projectId" placeholder="yourproject"></div>
+            <div class="field"><label>Storage Bucket</label><input type="text" id="fb-storageBucket" placeholder="yourproject.appspot.com"></div>
+            <div class="field"><label>Messaging Sender ID</label><input type="text" id="fb-messagingSenderId" placeholder="1234567890"></div>
+            <div class="field"><label>App ID</label><input type="text" id="fb-appId" placeholder="1:1234567890:web:abcd..."></div>
+            <div class="field"><label>Realtime Database URL (for online/offline status)</label><input type="text" id="fb-databaseURL" placeholder="https://yourproject-default-rtdb.firebaseio.com"></div>
+            <button class="btn-primary" onclick="saveFirebaseConfig()">Connect Cloud Sync</button>
+            <div class="success-msg" id="fb-status">Not connected — running in local-only (this device) mode.</div>
+          </div>
+          <div class="settings-card">
+            <h4>// AI Assistant Stand-In</h4>
+            <div class="note">Jab ye ON ho aur aap (Admin) offline hon, to koi bhi user live chat mein message bheje to AI Assistant khud jawab de dega — taake site har waqt "manned" rahe. (Behtar jawabon ke liye upar Gemini API key bhi set karain, warna basic rule-based jawab milega.)</div>
+            <label style="display:flex; align-items:center; gap:8px; font-family:var(--font-m); font-size:13px; margin-top:8px;">
+              <input type="checkbox" id="ai-standin-toggle" onchange="toggleAiStandIn()"> Enable AI stand-in when I'm offline
+            </label>
+            <div class="success-msg" id="ai-standin-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="ai-section">
+        <div class="ai-command-box">
+          <h4 data-i18n="aiCmdTitle">// Quick Site Commands</h4>
+          <div class="note" data-i18n="aiCmdNote">Ye rule-based command box hai — site ko turant control karta hai. Try karain: "block Ahmed", "publish invoice", "delete photo1", "announcement lagao: naya update aa gaya", "accent green karo".</div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-command-input" data-i18n-ph="cmdPh" placeholder="Command likhain...">
+            <button onclick="runAiCommandFromBox()" data-i18n="btnRun">Run</button>
+          </div>
+          <div class="ai-log-out" id="ai-log-out" data-i18n="ready">Ready.</div>
+        </div>
+
+        <div class="ai-command-box">
+          <h4 data-i18n="geminiTitle">// Gemini AI Assistant</h4>
+          <div class="note" data-i18n="geminiNote">Apni Google Gemini API key daal kar admin website update karne, content likhwane ya ideas lene ke liye AI se madad le sakta hai. Key sirf isi browser mein (local) save hoti hai aur seedha Google ko jaati hai.</div>
+          <div class="field" style="margin-bottom:10px;">
+            <input type="password" id="gemini-key-input" data-i18n-ph="geminiKeyPh" placeholder="Gemini API Key (AIza...)">
+          </div>
+          <div class="ai-input-row">
+            <textarea id="gemini-prompt-input" rows="2" data-i18n-ph="geminiPromptPh" placeholder="e.g. Eid sale ke liye ek announcement likho"></textarea>
+            <button onclick="askGemini()" data-i18n="btnAsk">Ask</button>
+          </div>
+          <div class="ai-log-out" id="gemini-log-out" data-i18n="geminiReady">Gemini se pochne ke liye upar apni API key daalain.</div>
+          <button class="btn-primary small" style="margin-top:10px;" onclick="runGeminiReplyAsCommand()" data-i18n="btnRunGeminiAsCmd">Is jawab ko site command ki tarha chalayen</button>
+        </div>
+      </div>
+
+      <div class="section" id="backup-section">
+        <div class="settings-card">
+          <h4 data-i18n="backupTitle">// Backup &amp; Restore</h4>
+          <div class="note" data-i18n="backupNote">Update karne se pehle backup download kar lain. Agar update ke doran koi error aa jaye, to backup file wapas import kar ke sab data restore ho jayega.</div>
+          <div class="backup-actions">
+            <button class="btn-primary small" onclick="exportBackup()" data-i18n="btnExportBackup">⬇ Download Backup</button>
+            <button class="btn-primary small" onclick="document.getElementById('backup-import-input').click()" data-i18n="btnImportBackup">⬆ Restore From Backup</button>
+            <button class="btn-outline-amber" onclick="restoreAutoBackup()" data-i18n="btnAutoRestore">↺ Restore Last Auto-Backup</button>
+          </div>
+          <input type="file" id="backup-import-input" accept="application/json" style="display:none" onchange="importBackup(event)">
+          <div class="success-msg" id="backup-msg"></div>
+        </div>
+      </div>
+
+      <div class="contact-line"><span data-i18n="adminContact">Admin Contact:</span> <a href="tel:+923074499097">+92 307 4499087</a> &nbsp;•&nbsp; <a class="wa-link" href="https://wa.me/923074499097" target="_blank">WhatsApp</a></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ FILE PREVIEW MODAL ============ -->
+<div class="modal-overlay" id="file-modal">
+  <div class="modal-box">
+    <h4 id="modal-title">File</h4>
+    <div class="mpreview" id="modal-preview"></div>
+    <div class="mrow" id="modal-owner"></div>
+    <div class="mrow" id="modal-status"></div>
+    <div class="modal-actions">
+      <a class="btn-primary" id="modal-download" download data-i18n="btnDownload">Download</a>
+      <button class="btn-primary ghost" onclick="closeModal()" data-i18n="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VOICE ASSISTANT WIDGET ============ -->
+<div id="assistant-widget">
+  <div class="mic-btn" id="mic-btn" onclick="toggleListening()">🎙</div>
+  <div class="assistant-panel" id="assistant-panel">
+    <div class="ap-title"><span class="dot"></span> <span data-i18n="assistantTitle">Rehbar Assistant</span></div>
+    <div class="assistant-log" id="assistant-log"></div>
+    <div class="assistant-hint" id="assistant-hint" data-i18n="assistantHint">Mic dabain aur bolain — jaise "logout karo", "dashboard".</div>
+  </div>
+
+  <div class="chat-btn" id="chat-btn" onclick="toggleChatPanel()">💬<span class="badge" id="chat-badge">0</span></div>
+  <div class="chat-panel" id="chat-panel">
+    <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
+    <div class="chat-log" id="user-chat-log"></div>
+    <div class="ai-input-row">
+      <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
+      <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="script.js"></script>
+<script src="firebase-sync.js"></script>
 </body>
 </html>
