@@ -12,6 +12,28 @@
 
 const FB_CONFIG_KEY = 'atw_firebase_config';
 const AI_STANDIN_KEY = 'atw_ai_standin_enabled';
+
+// -----------------------------------------------------------------
+// BUILT-IN CONFIG — fill this in ONCE with your Firebase project's
+// values (Firebase console → Project settings → General → Your apps →
+// SDK config) and every browser/device/network that opens this site
+// will connect automatically. This is what fixes "only works on my
+// computer" — previously the config only lived in the Admin Panel
+// form, which saves to THAT browser's localStorage only, so no other
+// visitor's browser ever had it. Firebase web apiKeys are meant to be
+// public in client code (they are not secret) — access is controlled
+// by your Firestore/Realtime Database security rules, not by hiding
+// this key.
+// -----------------------------------------------------------------
+const DEFAULT_FB_CONFIG = {
+  apiKey: "AIzaSyBN671_ZOD4wzzj6rQzgDoaDdaIYzDycRA",
+  authDomain: "anas-tech-6ff0b.firebaseapp.com",
+  projectId: "anas-tech-6ff0b",
+  storageBucket: "anas-tech-6ff0b.firebasestorage.app",
+  messagingSenderId: "926205065962",
+  appId: "1:926205065962:web:1f0f4057ea941d0f02b593",
+  databaseURL: "" // TODO: paste your Realtime Database URL here (see note below) — needed for online/offline presence to work
+};
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
 let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null;
 let fbChatUnsubs = {}; // phone -> unsubscribe fn
@@ -19,7 +41,16 @@ let fbKnownUserPhones = new Set(); // to detect genuinely NEW logins for the toa
 let myPresenceRef = null;
 
 function loadFirebaseConfig(){
-  try{ return JSON.parse(localStorage.getItem(FB_CONFIG_KEY) || 'null'); }catch(e){ return null; }
+  // 1) Prefer whatever this browser saved via the Admin Panel form
+  //    (lets the admin override without editing code).
+  try{
+    const saved = JSON.parse(localStorage.getItem(FB_CONFIG_KEY) || 'null');
+    if(saved && saved.apiKey && saved.projectId) return saved;
+  }catch(e){ /* ignore */ }
+  // 2) Fall back to the built-in config above, so EVERY browser/device
+  //    connects the same way without needing the form filled in.
+  if(DEFAULT_FB_CONFIG.apiKey && DEFAULT_FB_CONFIG.projectId) return DEFAULT_FB_CONFIG;
+  return null;
 }
 
 function saveFirebaseConfig(){
@@ -59,6 +90,11 @@ function initFirebase(){
     const statusEl = document.getElementById('fb-status');
     if(statusEl) statusEl.textContent = '✅ Connected — data now syncs live across every device.';
     startCloudListeners();
+    // If a session was already restored (e.g. page refresh) before Firebase
+    // finished connecting, re-establish this device's online presence now —
+    // otherwise a refreshed admin/user would stay stuck showing "offline".
+    if(currentRole === 'admin') setMyPresence('admin');
+    else if(currentRole === 'user' && currentUser) setMyPresence(currentUser.phone);
   }catch(e){
     console.warn('Firebase init failed', e);
     const statusEl = document.getElementById('fb-status');

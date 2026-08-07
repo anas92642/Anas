@@ -5,6 +5,7 @@
   // =================================================================
   const STORAGE_KEY = 'atw_site_state_v1';
   const AUTO_BACKUP_KEY = 'atw_auto_backup_v1';
+  const SESSION_KEY = 'atw_session_v1'; // keeps the user logged in across page refresh / tab reload
   const WHATSAPP_NUMBER = '923074499097';
 
   let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
@@ -49,6 +50,45 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if(raw) applyState(JSON.parse(raw));
     }catch(e){ console.warn('Load failed', e); }
+  }
+
+  // -----------------------------------------------------------------
+  // SESSION PERSISTENCE — remembers who is logged in (admin / which
+  // user) across a page refresh or a mobile browser silently reloading
+  // an inactive tab. Without this, every refresh dropped the user back
+  // to the login screen because currentUser/currentRole only lived in
+  // memory.
+  // -----------------------------------------------------------------
+  function saveSession(){
+    try{
+      if(currentRole === 'admin'){
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ role: 'admin' }));
+      } else if(currentRole === 'user' && currentUser){
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ role: 'user', phone: currentUser.phone }));
+      } else {
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }catch(e){ console.warn('Session save failed', e); }
+  }
+
+  function restoreSession(){
+    let saved = null;
+    try{ saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(e){ saved = null; }
+    if(!saved || !saved.role) return false;
+    if(saved.role === 'admin'){
+      beginLogin('admin', null);
+      return true;
+    }
+    if(saved.role === 'user'){
+      const found = users.find(u => u.phone === saved.phone);
+      if(found && !found.blocked){
+        beginLogin('user', found);
+        return true;
+      }
+    }
+    // couldn't restore (e.g. account deleted/blocked) — clear the stale session
+    localStorage.removeItem(SESSION_KEY);
+    return false;
   }
 
   function exportBackup(){
@@ -332,6 +372,7 @@
   function beginLogin(role, user){
     currentRole = role;
     currentUser = user;
+    saveSession();
     showScreen('screen-loading');
 
     const container = document.getElementById('boot-lines');
@@ -410,6 +451,7 @@
     currentUser = null;
     currentRole = null;
     openThreadPhone = null;
+    saveSession();
     document.getElementById('login-phone').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('admin-password').value = '';
@@ -844,11 +886,17 @@
   window.addEventListener('DOMContentLoaded', () => {
     loadState();
     setLanguage(currentLang);
-    typeText(document.getElementById('typewriter-heading'), currentLang==='ur' ? 'Anas Technical World mein khush aamdeed' : 'Welcome to Anas Technical World', 40);
     applyAnnouncement();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
     const savedKey = localStorage.getItem('atw_gemini_key');
     if(savedKey) document.getElementById('gemini-key-input').value = savedKey;
+
+    // If this browser had an active session (admin or a logged-in user),
+    // resume it instead of showing the login/register portal again.
+    const resumed = restoreSession();
+    if(!resumed){
+      typeText(document.getElementById('typewriter-heading'), currentLang==='ur' ? 'Anas Technical World mein khush aamdeed' : 'Welcome to Anas Technical World', 40);
+    }
   });
 
   // Enter-key submits
