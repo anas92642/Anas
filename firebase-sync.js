@@ -16,7 +16,7 @@ const DEFAULT_FB_CONFIG = {
 
 const FB_CONFIG_KEY = 'atw_firebase_config';
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
-let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null;
+let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null, fbUnsubSystem = null;
 let fbChatUnsubs = {}; 
 let fbKnownUserPhones = new Set();
 let myPresenceRef = null;
@@ -168,6 +168,23 @@ function startCloudListeners(){
     presenceRef.on('value', cb);
     fbUnsubPresence = () => presenceRef.off('value', cb);
   }
+  
+  // System-wide actions listener
+  if(fbUnsubSystem) fbUnsubSystem();
+  fbUnsubSystem = fbDb.collection('meta').doc('system').onSnapshot(doc => {
+    if(!doc.exists) return;
+    const d = doc.data();
+    if(d.action === 'restart' && d.ts > (Date.now() - 10000)) { // action in last 10s
+      if(typeof currentRole !== 'undefined' && currentRole !== 'admin') {
+        // For non-admin users, clear session and reload
+        if(typeof clearMyPresence === 'function') clearMyPresence();
+        if(typeof saveSession === 'function') {
+          localStorage.removeItem('atw_session_v1'); // Hard logout
+          location.reload();
+        }
+      }
+    }
+  }, err => showFbError('system', err));
 
   if(typeof currentRole !== 'undefined'){
     if(currentRole === 'admin' && typeof openThreadPhone !== 'undefined' && openThreadPhone) subscribeToChat(openThreadPhone);
@@ -247,6 +264,7 @@ function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).de
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
+function fbTriggerSystemAction(actionName){ if(fbReady) fbDb.collection('meta').doc('system').set({ action: actionName, ts: Date.now() }).catch(e=>console.warn(e)); }
 function fbSaveChatThread(phone, thread){ if(fbReady) fbDb.collection('chats').doc(phone).set(thread).catch(e=>console.warn(e)); }
 
 function subscribeToChat(phone){

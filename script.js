@@ -123,6 +123,11 @@
     e.target.value = '';
   }
 
+  function triggerImportBackup(){
+    const fileInput = document.getElementById('backup-file-input');
+    if(fileInput) fileInput.click();
+  }
+
   function restoreAutoBackup(){
     const raw = localStorage.getItem(AUTO_BACKUP_KEY);
     if(!raw){ document.getElementById('backup-msg').textContent = t('noAutoBackup'); return; }
