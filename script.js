@@ -441,6 +441,7 @@
     document.getElementById('stat-unread').textContent = countUnread();
     document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
     renderUsersList();
+    renderOnlineUsersList();
     renderAdminUploads();
     renderThreadList();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
@@ -495,6 +496,35 @@
     `).join('') + `</div>`;
   }
 
+  function renderOnlineUsersList(){
+    const onlineUsers = users.filter(u => onlinePhones.has(u.phone));
+    const area = document.getElementById('online-user-list-area');
+    const countLabel = document.getElementById('online-list-count');
+
+    if (countLabel) {
+      countLabel.textContent = onlineUsers.length + ' ' + (currentLang === 'ur' ? 'online' : 'online');
+    }
+
+    if(onlineUsers.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi koi user online nahi hai.' : 'No users are online right now.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div class="user-grid">` + onlineUsers.map(u => `
+      <div class="user-row">
+        <div class="serial">#${String(u.serial).padStart(3,'0')}</div>
+        <div class="ph">${u.photo ? `<img src="${u.photo}">` : initials(u.name)}</div>
+        <div class="info">
+          <div class="n">${escapeHtml(u.name)} <span class="presence-dot is-online" title="Online"></span></div>
+          <div class="p">${escapeHtml(u.phone)}</div>
+          <div class="e">ERP ${u.erp}</div>
+        </div>
+        <div class="actions">
+          <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
+        </div>
+      </div>
+    `).join('') + `</div>`;
+  }
+
   // Tracks which users' phones are currently online — populated by
   // firebase-sync.js (presence system). Empty set = cloud sync not
   // connected, so nobody shows as "online" (this browser can't know).
@@ -539,12 +569,22 @@
   function handleAdminUpload(e){
     const file = e.target.files[0];
     if(!file) return;
+
+    const defaultName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    const displayName = prompt(currentLang === 'ur' ? 'File ke liye ek naam likhain:' : 'Enter a name for this file:', defaultName);
+
+    if (!displayName || !displayName.trim()) {
+        e.target.value = ''; // Reset file input to allow re-selecting same file
+        return; // Abort if user cancels or enters an empty name
+    }
+
     const reader = new FileReader();
     reader.onload = function(ev){
       const item = {
         id: uploadIdCounter++,
-        fileName: file.name,
+        fileName: displayName.trim(),
         fileType: file.type,
+        type: 'file', // Differentiate between file and link
         dataUrl: ev.target.result,
         status: 'pending',
         uploadedAt: new Date().toLocaleString()
@@ -558,6 +598,35 @@
     e.target.value = '';
   }
 
+  function addAdminLink(){
+    const url = prompt(currentLang === 'ur' ? 'Link ka URL paste karain:' : 'Paste the link URL:');
+    if(!url || !url.trim()) return;
+    let validUrl;
+    try {
+      validUrl = new URL(url.startsWith('http') ? url : 'https://' + url);
+    } catch(e) {
+      alert(currentLang === 'ur' ? 'URL theek nahi hai.' : 'Invalid URL.');
+      return;
+    }
+
+    const title = prompt(currentLang === 'ur' ? 'Link ke liye ek title likhain:' : 'Enter a title for the link:', validUrl.hostname);
+    if(!title || !title.trim()) return;
+
+    const item = {
+      id: uploadIdCounter++,
+      type: 'link', // Differentiate between file and link
+      url: validUrl.href,
+      fileName: title, // Use fileName for title to keep structure consistent
+      iconUrl: `https://www.google.com/s2/favicons?sz=64&domain_url=${validUrl.hostname}`,
+      status: 'pending',
+      uploadedAt: new Date().toLocaleString()
+    };
+    uploads.push(item);
+    saveState();
+    renderAdminUploads();
+    renderCommunityUploads();
+  }
+
   function statusBadge(status){
     if(status === 'published') return `<span class="badge-status badge-published">Published</span>`;
     if(status === 'unpublished') return `<span class="badge-status badge-unpublished">Unpublished</span>`;
@@ -565,6 +634,10 @@
   }
 
   function uploadThumb(u){
+    if(u.type === 'link'){
+      // The 'AI' generated icon is the website's favicon, with a fallback.
+      return `<img src="${u.iconUrl}" onerror="this.onerror=null;this.src='assets/link-icon.png';">`;
+    }
     if(u.fileType && u.fileType.startsWith('image/')){
       return `<img src="${u.dataUrl}">`;
     }
@@ -580,8 +653,8 @@
       return;
     }
     area.innerHTML = `<div class="upload-grid">` + pub.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.08}s">
-        <div class="upload-thumb" onclick="openFilePreview(${u.id})" style="cursor:pointer;">${uploadThumb(u)}</div>
+      <div class="upload-card" style="animation-delay:${i*0.08}s" onclick="${u.type === 'link' ? `openLinkPreview(${u.id})` : `openFilePreview(${u.id})`}">
+        <div class="upload-thumb" style="cursor:pointer;">${uploadThumb(u)}</div>
         <div class="upload-name">${escapeHtml(u.fileName)}</div>
         <div class="upload-owner">${currentLang==='ur' ? 'Admin ki taraf se' : 'From Admin'}</div>
       </div>
@@ -596,8 +669,8 @@
       return;
     }
     area.innerHTML = `<div class="upload-grid">` + uploads.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.05}s">
-        <div class="upload-thumb" onclick="openFilePreview(${u.id})" style="cursor:pointer;">${uploadThumb(u)}</div>
+      <div class="upload-card" style="animation-delay:${i*0.05}s" onclick="${u.type === 'link' ? `openLinkPreview(${u.id})` : `openFilePreview(${u.id})`}">
+        <div class="upload-thumb" style="cursor:pointer;">${uploadThumb(u)}</div>
         <div class="upload-name">${escapeHtml(u.fileName)}</div>
         ${statusBadge(u.status)}
         <div class="upload-actions">
@@ -628,7 +701,7 @@
 
   function openFilePreview(id){
     const u = uploads.find(x => x.id === id);
-    if(!u) return;
+    if(!u || u.type === 'link') return;
     document.getElementById('modal-title').textContent = u.fileName;
     const prev = document.getElementById('modal-preview');
     prev.innerHTML = (u.fileType && u.fileType.startsWith('image/')) ? `<img src="${u.dataUrl}">` : `<div style="padding:30px; font-family:var(--font-m); color:var(--dim); text-align:center;">${currentLang==='ur' ? 'Preview available nahi — download karain.' : 'Preview not available — please download.'}</div>`;
@@ -643,6 +716,21 @@
 
   function closeModal(){
     document.getElementById('file-modal').classList.remove('show');
+  }
+
+  function openLinkPreview(id){
+    const u = uploads.find(x => x.id === id);
+    if(!u || u.type !== 'link') return;
+    document.getElementById('link-modal-title').textContent = u.fileName;
+    const iframe = document.getElementById('link-iframe');
+    // Using a proxy to bypass 'X-Frame-Options' header if possible
+    iframe.src = u.url;
+    document.getElementById('link-modal').classList.add('show');
+  }
+
+  function closeLinkModal(){
+    document.getElementById('link-iframe').src = 'about:blank'; // Clear content
+    document.getElementById('link-modal').classList.remove('show');
   }
 
   // =================================================================
@@ -812,6 +900,7 @@
     if(currentRole === 'admin'){
       renderThreadList();
       if(openThreadPhone) renderAdminChatLog();
+      renderOnlineUsersList();
       document.getElementById('stat-unread').textContent = countUnread();
     }
   }, 2500);

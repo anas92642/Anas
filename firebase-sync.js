@@ -167,6 +167,7 @@ function startCloudListeners(){
         if(onlineEl) onlineEl.textContent = onlineCount;
         if(offlineEl) offlineEl.textContent = Math.max(uLen - onlineCount, 0);
         if(typeof renderUsersList === 'function') renderUsersList();
+        if(typeof renderOnlineUsersList === 'function') renderOnlineUsersList();
       }
       checkAdminOfflineForStandIn(snap);
     };

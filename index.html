@@ -187,11 +187,18 @@
         <div id="user-list-area"></div>
       </div>
 
+      <div class="section" id="online-users-section">
+        <div class="list-header"><h3>// Online Users</h3><span id="online-list-count">0 online</span></div>
+        <div id="online-user-list-area"></div>
+      </div>
+
+
       <div class="section" id="uploads-section">
         <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
         <div class="upload-drop">
           <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
-          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
+          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()">+ <span data-i18n="btnUploadFile">Upload File</span></button>
+          <button type="button" class="photo-btn" onclick="addAdminLink()">+ Add Link</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
         <div id="admin-uploads-area"></div>
@@ -310,6 +317,19 @@
     <div class="modal-actions">
       <a class="btn-primary" id="modal-download" download data-i18n="btnDownload">Download</a>
       <button class="btn-primary ghost" onclick="closeModal()" data-i18n="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LINK PREVIEW MODAL ============ -->
+<div class="modal-overlay" id="link-modal">
+  <div class="modal-box wide">
+    <div class="link-header">
+      <h4 id="link-modal-title">Link</h4>
+      <button class="close-btn-wide" onclick="closeLinkModal()">✕</button>
+    </div>
+    <div class="link-frame-wrapper">
+      <iframe id="link-iframe" src="about:blank" frameborder="0" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
     </div>
   </div>
 </div>
