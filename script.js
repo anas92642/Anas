@@ -837,7 +837,7 @@
 
     const systemPrompt = "You are an assistant helping the admin of a small website called 'Anas Technical World' (an Urdu/English bilingual portal). Reply concisely in the same language as the prompt (Roman Urdu, Urdu script, or English). If the admin's request looks like a site action (block/unblock a user, publish/unpublish/delete a file, set an announcement, change accent color), restate it as ONE line in this exact format so it can be run as a command: block <name> | unblock <name> | publish <filename> | unpublish <filename> | delete <filename> | announcement lagao: <message> | accent green|blue|amber karo — otherwise just answer normally.";
 
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=' + encodeURIComponent(key), {
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\\n\\nAdmin: ' + prompt }] }] })
@@ -1262,77 +1262,3 @@
     window.speak = originalSpeak;
     input.value = '';
   }
-// =================================================================
-// GEMINI AI ASSISTANT & SITE COMMANDS INTEGRATION (FIXED)
-// =================================================================
-
-// Safely declare without throwing 'already declared' error
-if (typeof window.lastGeminiReply === 'undefined') {
-    window.lastGeminiReply = '';
-}
-
-async function askGemini() {
-    const keyInput = document.getElementById('gemini-key-input');
-    const key = (keyInput && keyInput.value.trim()) || localStorage.getItem('atw_gemini_key') || '';
-    const promptInput = document.getElementById('gemini-prompt-input');
-    const prompt = promptInput ? promptInput.value.trim() : '';
-    const out = document.getElementById('gemini-log-out');
-
-    if (!out) return;
-
-    const isUr = typeof currentLang !== 'undefined' && currentLang === 'ur';
-
-    if (!key) {
-        out.textContent = isUr ? 'Pehle apni Gemini API key daalain.' : 'Please enter your Gemini API key first.';
-        return;
-    }
-    if (!prompt) {
-        out.textContent = isUr ? 'Sawal ya command likhain.' : 'Type a question or command.';
-        return;
-    }
-
-    localStorage.setItem('atw_gemini_key', key);
-    out.textContent = isUr ? 'Gemini se jawab aa raha hai...' : 'Waiting for Gemini...';
-
-    const systemInstruction = "You are Rehbar Assistant for 'Anas Technical World'. Keep replies short, polite, and accurate in Urdu, Roman Urdu, or English.";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(key)}`;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: `${systemInstruction}\n\nUser Question: ${prompt}` }]
-                }]
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-            window.lastGeminiReply = data.candidates[0].content.parts[0].text.trim();
-            out.textContent = window.lastGeminiReply;
-        } else if (data.error) {
-            out.textContent = 'Gemini Error: ' + data.error.message;
-        } else {
-            out.textContent = isUr ? 'Koi jawab nahi mila.' : 'No reply received.';
-        }
-    } catch (err) {
-        out.textContent = (isUr ? 'Rabta nahi ho saka: ' : 'Network error: ') + err.message;
-    }
-}
-
-function runGeminiReplyAsCommand() {
-    const out = document.getElementById('gemini-log-out');
-    const isUr = typeof currentLang !== 'undefined' && currentLang === 'ur';
-
-    if (!window.lastGeminiReply) {
-        if (out) out.textContent = isUr ? 'Pehle Gemini se koi jawab lein.' : 'Ask Gemini something first.';
-        return;
-    }
-    
-    if (typeof handleCommand === 'function') {
-        handleCommand(window.lastGeminiReply);
-    }
-}
