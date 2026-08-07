@@ -315,18 +315,20 @@
     if(password.length < 4){ err.textContent = currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'; return; }
     if(users.some(u => u.phone === phone)){ err.textContent = currentLang==='ur' ? 'Ye phone number pehle se registered hai. Login karain.' : 'This phone number is already registered. Please login.'; return; }
 
-    const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false };
+    const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved: false };
     users.push(newUser);
     chatThreads[phone] = chatThreads[phone] || { name, messages: [] };
     saveState();
+    if(window.fbSaveUser) window.fbSaveUser(newUser);
 
     document.getElementById('reg-name').value = '';
     document.getElementById('reg-phone').value = '';
     document.getElementById('reg-password').value = '';
     document.getElementById('reg-photo-preview').innerHTML = t('photoWord');
     pendingPhoto = null;
-
-    beginLogin('user', newUser);
+    
+    err.textContent = currentLang === 'ur' ? 'Registration kamyab! Admin ki approval ke baad aap login kar sakain gay.' : 'Registration successful! You can log in after the admin approves your account.';
+    switchUserTab('login');
   }
 
   function userLogin(){
@@ -336,6 +338,7 @@
     err.textContent = '';
     const found = users.find(u => u.phone === phone);
     if(!found){ err.textContent = currentLang==='ur' ? 'Ye phone number registered nahi. Pehle register karain.' : 'This phone number is not registered. Please register first.'; return; }
+    if(!found.approved){ err.textContent = currentLang==='ur' ? 'Aapka account abhi tak approve nahi hua. Admin se rabta karain.' : 'Your account is not yet approved. Please contact the admin.'; return; }
     if(found.password !== password){ err.textContent = currentLang==='ur' ? 'Password ghalat hai.' : 'Incorrect password.'; return; }
     if(found.blocked){ err.textContent = (currentLang==='ur' ? 'Ye account block kar diya gaya hai. Admin se rabta karain: ' : 'This account has been blocked. Contact Admin: ') + '+923074499097'; return; }
     beginLogin('user', found);
@@ -482,13 +485,19 @@
           <div class="n">${escapeHtml(u.name)} <span class="presence-dot ${onlinePhones.has(u.phone) ? 'is-online' : 'is-offline'}" title="${onlinePhones.has(u.phone) ? 'Online' : 'Offline'}"></span></div>
           <div class="p">${escapeHtml(u.phone)}</div>
           <div class="e">ERP ${u.erp}</div>
+          ${!u.approved ? `<div class="badge-pending">● ${currentLang==='ur'?'Pending Approval':'Pending Approval'}</div>` : ''}
           ${u.blocked ? `<div class="badge-blocked">● ${currentLang==='ur'?'Blocked':'Blocked'}</div>` : ''}
         </div>
         <div class="actions">
-          ${u.blocked
-            ? `<button class="btn-outline-green" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Unblock':'Unblock'}</button>`
-            : `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>`}
-          <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
+          ${!u.approved
+            ? `<button class="btn-outline-green" onclick="approveUser('${u.phone}')">${currentLang==='ur'?'Approve':'Approve'}</button>
+               <button class="btn-outline-danger" onclick="rejectUser('${u.phone}')">${currentLang==='ur'?'Reject':'Reject'}</button>`
+            : `${u.blocked
+                ? `<button class="btn-outline-green" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Unblock':'Unblock'}</button>`
+                : `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>`
+              }
+              <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>`
+          }
           <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
           <button class="btn-outline-green" onclick="viewUserProfile('${u.phone}')">👤 Profile</button>
         </div>
@@ -560,6 +569,27 @@
     if(!u) return;
     u.blocked = !u.blocked;
     saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    renderUsersList();
+  }
+
+  function approveUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    u.approved = true;
+    saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    renderUsersList();
+  }
+
+  function rejectUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    if(!confirm((currentLang==='ur'?'Kya aap user "' : 'Are you sure you want to reject and delete user "') + u.name + '"?')) return;
+    users = users.filter(x => x.phone !== phone);
+    delete chatThreads[phone];
+    saveState();
+    if(window.fbDeleteUser) window.fbDeleteUser(phone);
     renderUsersList();
   }
 

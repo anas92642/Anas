@@ -167,7 +167,6 @@ function startCloudListeners(){
         if(onlineEl) onlineEl.textContent = onlineCount;
         if(offlineEl) offlineEl.textContent = Math.max(uLen - onlineCount, 0);
         if(typeof renderUsersList === 'function') renderUsersList();
-        if(typeof renderOnlineUsersList === 'function') renderOnlineUsersList();
       }
       checkAdminOfflineForStandIn(snap);
     };
@@ -249,6 +248,7 @@ window.addEventListener('beforeunload', clearMyPresence);
 // PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
 function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
+function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).delete().catch(e=>console.warn(e)); }
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
