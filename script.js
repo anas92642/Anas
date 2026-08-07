@@ -1263,12 +1263,14 @@
     input.value = '';
   }
 // =================================================================
-// GEMINI AI ASSISTANT & SITE COMMANDS INTEGRATION
+// GEMINI AI ASSISTANT & SITE COMMANDS INTEGRATION (FIXED)
 // =================================================================
 
-let lastGeminiReply = '';
+// Safely declare without throwing 'already declared' error
+if (typeof window.lastGeminiReply === 'undefined') {
+    window.lastGeminiReply = '';
+}
 
-// 1. Gemini API ko call karne ka function
 async function askGemini() {
     const keyInput = document.getElementById('gemini-key-input');
     const key = (keyInput && keyInput.value.trim()) || localStorage.getItem('atw_gemini_key') || '';
@@ -1278,17 +1280,19 @@ async function askGemini() {
 
     if (!out) return;
 
+    const isUr = typeof currentLang !== 'undefined' && currentLang === 'ur';
+
     if (!key) {
-        out.textContent = currentLang === 'ur' ? 'Pehle apni Gemini API key daalain.' : 'Please enter your Gemini API key first.';
+        out.textContent = isUr ? 'Pehle apni Gemini API key daalain.' : 'Please enter your Gemini API key first.';
         return;
     }
     if (!prompt) {
-        out.textContent = currentLang === 'ur' ? 'Sawal ya command likhain.' : 'Type a question or command.';
+        out.textContent = isUr ? 'Sawal ya command likhain.' : 'Type a question or command.';
         return;
     }
 
     localStorage.setItem('atw_gemini_key', key);
-    out.textContent = currentLang === 'ur' ? 'Gemini se jawab aa raha hai...' : 'Waiting for Gemini...';
+    out.textContent = isUr ? 'Gemini se jawab aa raha hai...' : 'Waiting for Gemini...';
 
     const systemInstruction = "You are Rehbar Assistant for 'Anas Technical World'. Keep replies short, polite, and accurate in Urdu, Roman Urdu, or English.";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(key)}`;
@@ -1307,27 +1311,28 @@ async function askGemini() {
         const data = await response.json();
 
         if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-            lastGeminiReply = data.candidates[0].content.parts[0].text.trim();
-            out.textContent = lastGeminiReply;
+            window.lastGeminiReply = data.candidates[0].content.parts[0].text.trim();
+            out.textContent = window.lastGeminiReply;
         } else if (data.error) {
             out.textContent = 'Gemini Error: ' + data.error.message;
         } else {
-            out.textContent = currentLang === 'ur' ? 'Koi jawab nahi mila.' : 'No reply received.';
+            out.textContent = isUr ? 'Koi jawab nahi mila.' : 'No reply received.';
         }
     } catch (err) {
-        out.textContent = (currentLang === 'ur' ? 'Rabta nahi ho saka: ' : 'Network error: ') + err.message;
+        out.textContent = (isUr ? 'Rabta nahi ho saka: ' : 'Network error: ') + err.message;
     }
 }
 
-// 2. Gemini ke jawab ko site command ki tarah chalane ka function
 function runGeminiReplyAsCommand() {
     const out = document.getElementById('gemini-log-out');
-    if (!lastGeminiReply) {
-        if (out) out.textContent = currentLang === 'ur' ? 'Pehle Gemini se koi jawab lein.' : 'Ask Gemini something first.';
+    const isUr = typeof currentLang !== 'undefined' && currentLang === 'ur';
+
+    if (!window.lastGeminiReply) {
+        if (out) out.textContent = isUr ? 'Pehle Gemini se koi jawab lein.' : 'Ask Gemini something first.';
         return;
     }
     
     if (typeof handleCommand === 'function') {
-        handleCommand(lastGeminiReply);
+        handleCommand(window.lastGeminiReply);
     }
 }
