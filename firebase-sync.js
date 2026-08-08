@@ -20,8 +20,8 @@ const DEFAULT_FB_CONFIG = {
 };
 
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
-let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubMeta = null, fbUnsubPresence = null;
-let fbChatUnsubs = {}; 
+let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubLinks = null, fbUnsubMeta = null, fbUnsubPresence = null;
+let fbChatUnsubs = {};
 let fbKnownUserPhones = new Set();
 let myPresenceRef = null;
 
@@ -128,11 +128,26 @@ function startCloudListeners(){
       uploads = cloudUploads.sort((a,b) => a.id - b.id);
     }
     if(typeof saveState === 'function') saveState();
-    if(typeof currentRole !== 'undefined'){
+if(typeof currentRole !== 'undefined'){
       if(currentRole === 'admin' && typeof renderAdminUploads === 'function') renderAdminUploads();
       if(currentRole === 'user' && typeof renderCommunityUploads === 'function') renderCommunityUploads();
     }
   }, err => showFbError('uploads', err));
+
+  // Links collection
+  if(typeof fbUnsubLinks !== 'undefined' && fbUnsubLinks) fbUnsubLinks();
+  fbUnsubLinks = fbDb.collection('links').onSnapshot(snap => {
+    const cloudLinks = [];
+    snap.forEach(doc => cloudLinks.push(doc.data()));
+    if(typeof links !== 'undefined'){
+      links = cloudLinks.sort((a,b) => a.id - b.id);
+    }
+    if(typeof saveState === 'function') saveState();
+    if(typeof currentRole !== 'undefined'){
+      if(currentRole === 'admin' && typeof renderAdminLinks === 'function') renderAdminLinks();
+      if(currentRole === 'user' && typeof renderUserLinks === 'function') renderUserLinks();
+    }
+  }, err => showFbError('links', err));
 
   // Meta doc
   if(fbUnsubMeta) fbUnsubMeta();
@@ -248,8 +263,11 @@ window.addEventListener('beforeunload', clearMyPresence);
 // PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
 function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
+function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).delete().catch(e=>console.warn(e)); }
 function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
+function fbSaveLink(l){ if(fbReady) fbDb.collection('links').doc(String(l.id)).set(l).catch(e=>console.warn(e)); }
+function fbDeleteLink(id){ if(fbReady) fbDb.collection('links').doc(String(id)).delete().catch(e=>console.warn(e)); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
 
 function subscribeToChat(phone){
@@ -371,11 +389,48 @@ function wrapForCloudSync(){
     };
   }
 
-  if(window.deleteUpload){
+if(window.deleteUpload){
     const _deleteUpload = window.deleteUpload;
     window.deleteUpload = function(id){
       _deleteUpload(id);
       if(fbReady) fbDeleteUpload(id);
+    };
+  }
+
+  if(window.deleteUser){
+    const _deleteUser = window.deleteUser;
+    window.deleteUser = function(phone){
+      _deleteUser(phone);
+      if(fbReady) fbDeleteUser(phone);
+    };
+  }
+
+  if(window.addAdminLink){
+    const _addAdminLink = window.addAdminLink;
+    window.addAdminLink = function(){
+      const before = typeof links !== 'undefined' ? links.length : 0;
+      _addAdminLink();
+      if(fbReady && typeof links !== 'undefined' && links.length > before) fbSaveLink(links[links.length - 1]);
+    };
+  }
+
+  if(window.deleteLink){
+    const _deleteLink = window.deleteLink;
+    window.deleteLink = function(id){
+      _deleteLink(id);
+      if(fbReady) fbDeleteLink(id);
+    };
+  }
+
+  if(window.saveProfile){
+    const _saveProfile = window.saveProfile;
+    window.saveProfile = function(){
+      const before = window.currentUser ? window.currentUser.phone : null;
+      _saveProfile();
+      if(fbReady && before && typeof users !== 'undefined'){
+        const u = users.find(x => x.phone === before);
+        if(u) fbSaveUser(u);
+      }
     };
   }
 

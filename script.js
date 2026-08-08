@@ -8,12 +8,14 @@
   const SESSION_KEY = 'atw_session_v1'; // keeps the user logged in across page refresh / tab reload
   const WHATSAPP_NUMBER = '923074499097';
 
-  let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
+let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let users = [];        // {serial, erp, name, phone, password, photo, blocked}
   let uploads = [];      // {id, fileName, fileType, dataUrl, status, uploadedAt}
+  let links = [];        // {id, name, url, addedAt}
   let chatThreads = {};  // phone -> {name, messages:[{from:'user'|'admin', text, time, read}]}
   let erpCounter = 20000 + Math.floor(Math.random() * 70000);
   let uploadIdCounter = 1;
+  let linkIdCounter = 1;
   let pendingPhoto = null;
   let currentUser = null;
   let currentRole = null;    // 'admin' | 'user'
@@ -21,8 +23,8 @@
   let currentLang = 'ur';
   let openThreadPhone = null;
 
-  function collectState(){
-    return { ADMIN, users, uploads, chatThreads, erpCounter, uploadIdCounter, siteAnnouncement, currentLang };
+function collectState(){
+    return { ADMIN, users, uploads, links, chatThreads, erpCounter, uploadIdCounter, linkIdCounter, siteAnnouncement, currentLang };
   }
 
   function saveState(){
@@ -33,14 +35,16 @@
     }catch(e){ console.warn('Save failed', e); }
   }
 
-  function applyState(data){
+function applyState(data){
     if(!data) return;
     ADMIN = data.ADMIN || ADMIN;
     users = data.users || [];
     uploads = data.uploads || [];
+    links = data.links || [];
     chatThreads = data.chatThreads || {};
     erpCounter = data.erpCounter || erpCounter;
     uploadIdCounter = data.uploadIdCounter || uploadIdCounter;
+    linkIdCounter = data.linkIdCounter || linkIdCounter;
     siteAnnouncement = data.siteAnnouncement || '';
     currentLang = data.currentLang || 'ur';
   }
@@ -148,6 +152,7 @@
       lblPhone: 'Phone Number', phPhone: 'e.g. 03001234567', phLoginPhone: 'Apna registered phone number',
       lblPassword: 'Password', phPassword: '••••••••',
       photoWord: 'Photo', btnUploadPic: 'Upload Picture',
+      orDivider: 'ya agar account hai',
       btnRegisterGo: 'Register & Continue', noAccount: 'Account nahi hai?',
       btnAdminLogin: 'Login as Admin', waChat: 'WhatsApp par baat karain',
       authenticating: '// authenticating',
@@ -161,6 +166,10 @@
       usersLog: '// System_Users.log', uploadsLog: '// Uploads_Control.log (Admin only)',
       adminUploadNote: 'Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.',
       btnUploadFile: '+ Upload File',
+      linksLog: '// Links_Control.log (Admin only)', adminLinksNote: 'Yahan koi bhi link (URL) add karain — ek khud-ba-khud icon ban jayega aur users ko aapka link dikhega. Har link par uska naam neeche likha hota hai.',
+      linkNamePh: 'Link ka naam (e.g. YouTube, Website)', linkUrlPh: 'https://...', btnAddLink: '+ Add Link',
+      linksTitle: '// Admin Links',
+      editProfile: '// Edit Profile', btnSaveProfile: 'Save Profile',
       liveChatLog: '// Live Chat', chatDeviceNote: 'Note: ye chat isi browser/device par save hoti hai (koi backend server nahi hai). Alag device se real live chat ke liye backend (jaise Firebase) chahiye hoga.',
       settingsLog: '// Settings', changePw: 'Change Admin Password', curPw: 'Current Password', newPw: 'New Password', confirmPw: 'Confirm New Password',
       btnUpdatePw: 'Update Password', siteAnn: 'Site Announcement', annLabel: 'Message (portal page par sab ko dikhegi)',
@@ -191,6 +200,7 @@
       lblPhone: 'Phone Number', phPhone: 'e.g. 03001234567', phLoginPhone: 'Your registered phone number',
       lblPassword: 'Password', phPassword: '••••••••',
       photoWord: 'Photo', btnUploadPic: 'Upload Picture',
+      orDivider: 'or if you already have an account',
       btnRegisterGo: 'Register & Continue', noAccount: "Don't have an account?",
       btnAdminLogin: 'Login as Admin', waChat: 'Chat on WhatsApp',
       authenticating: '// authenticating',
@@ -204,6 +214,10 @@
       usersLog: '// System_Users.log', uploadsLog: '// Uploads_Control.log (Admin only)',
       adminUploadNote: 'Any file uploaded here will show on the user side once published.',
       btnUploadFile: '+ Upload File',
+      linksLog: '// Links_Control.log (Admin only)', adminLinksNote: 'Add any link (URL) here — an icon is generated automatically and users will see your link. Each link has its name shown underneath.',
+      linkNamePh: 'Link name (e.g. YouTube, Website)', linkUrlPh: 'https://...', btnAddLink: '+ Add Link',
+      linksTitle: '// Admin Links',
+      editProfile: '// Edit Profile', btnSaveProfile: 'Save Profile',
       liveChatLog: '// Live Chat', chatDeviceNote: 'Note: this chat is saved on this browser/device only (no backend server). Real live chat across different devices needs a backend (e.g. Firebase).',
       settingsLog: '// Settings', changePw: 'Change Admin Password', curPw: 'Current Password', newPw: 'New Password', confirmPw: 'Confirm New Password',
       btnUpdatePw: 'Update Password', siteAnn: 'Site Announcement', annLabel: 'Message (shown to everyone on the portal page)',
@@ -329,9 +343,9 @@
     beginLogin('user', newUser);
   }
 
-  function userLogin(){
-    const phone = document.getElementById('login-phone').value.trim();
-    const password = document.getElementById('login-password').value;
+function userLogin(){
+    const phone = document.getElementById('reg-phone').value.trim();
+    const password = document.getElementById('reg-password').value;
     const err = document.getElementById('login-error');
     err.textContent = '';
     const found = users.find(u => u.phone === phone);
@@ -394,7 +408,6 @@
     });
 
     setTimeout(() => {
-      document.getElementById('assistant-widget').classList.add('show');
       if(role === 'admin') renderAdminWelcome();
       else renderUserWelcome(user);
     }, 1050);
@@ -425,10 +438,16 @@
     const circle = document.getElementById('welcome-circle-block');
     circle.style.animation = 'none'; void circle.offsetWidth; circle.style.animation = '';
 
-    document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
+document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
     document.getElementById('user-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent('Assalam o Alaikum, mera naam ' + u.name + ' hai.');
 
+    // populate edit-profile form
+    document.getElementById('profile-name-input').value = u.name;
+    document.getElementById('profile-photo-preview').innerHTML = u.photo ? `<img src="${u.photo}">` : '👤';
+    document.getElementById('profile-success').textContent = '';
+
     renderCommunityUploads();
+    renderUserLinks();
     renderUserChatLog();
     showScreen('screen-welcome-user');
   }
@@ -438,28 +457,27 @@
     document.getElementById('admin-role-label').textContent = (currentLang==='ur' ? 'Administrator · ERP ' : 'Administrator · ERP ') + ADMIN.erp;
     document.getElementById('stat-total').textContent = users.length;
     document.getElementById('stat-uploads').textContent = uploads.length;
-    document.getElementById('stat-unread').textContent = countUnread();
+document.getElementById('stat-unread').textContent = countUnread();
     document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
     renderUsersList();
     renderAdminUploads();
+    renderAdminLinks();
     renderThreadList();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
     showScreen('screen-welcome-admin');
   }
 
-  function logout(){
+function logout(){
     currentUser = null;
     currentRole = null;
     openThreadPhone = null;
     saveSession();
-    document.getElementById('login-phone').value = '';
-    document.getElementById('login-password').value = '';
-    document.getElementById('admin-password').value = '';
-    document.getElementById('assistant-widget').classList.remove('show');
-    document.getElementById('assistant-panel').classList.remove('open');
-    document.getElementById('chat-panel').classList.remove('open');
-    stopListening();
-    switchUserTab('register');
+    if(document.getElementById('reg-name')) document.getElementById('reg-name').value = '';
+    if(document.getElementById('reg-phone')) document.getElementById('reg-phone').value = '';
+    if(document.getElementById('reg-password')) document.getElementById('reg-password').value = '';
+    if(document.getElementById('admin-password')) document.getElementById('admin-password').value = '';
+    if(document.getElementById('chat-panel')) document.getElementById('chat-panel').classList.remove('open');
+    try{ stopListening(); }catch(e){}
     switchRoleTab('user');
     showScreen('screen-portal');
   }
@@ -489,7 +507,9 @@
             : `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>`}
           <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
           <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
+          <button class="btn-outline-green" onclick="viewUserPassword('${u.phone}')">👁 View Password</button>
           <button class="btn-outline-green" onclick="viewUserProfile('${u.phone}')">👤 Profile</button>
+          <button class="btn-outline-danger" onclick="deleteUser('${u.phone}')">🗑 Delete</button>
         </div>
       </div>
     `).join('') + `</div>`;
@@ -525,12 +545,38 @@
     document.getElementById('file-modal').classList.add('show');
   }
 
-  function toggleBlock(phone){
+function toggleBlock(phone){
     const u = users.find(x => x.phone === phone);
     if(!u) return;
     u.blocked = !u.blocked;
     saveState();
     renderUsersList();
+  }
+
+  // Admin can see the password any user set at registration
+  function viewUserPassword(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    alert(currentLang==='ur'
+      ? ('User: ' + u.name + '\nPhone: ' + u.phone + '\nPassword: "' + u.password + '"')
+      : ('User: ' + u.name + '\nPhone: ' + u.phone + '\nPassword: "' + u.password + '"'));
+  }
+
+  // Admin can delete any user account
+  function deleteUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    if(!confirm(currentLang==='ur'
+      ? ('Pakka delete karain "' + u.name + '" ko? Ye hamesha ke liye remove ho jayega.')
+      : ('Really delete "' + u.name + '"? This cannot be undone.'))) return;
+    users = users.filter(x => x.phone !== phone);
+    delete chatThreads[phone];
+    saveState();
+    if(window.fbDeleteUser) window.fbDeleteUser(phone);
+    renderUsersList();
+    renderThreadList();
+    document.getElementById('stat-total').textContent = users.length;
+    document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
   }
 
   // =================================================================
@@ -641,8 +687,128 @@
     document.getElementById('file-modal').classList.add('show');
   }
 
-  function closeModal(){
+function closeModal(){
     document.getElementById('file-modal').classList.remove('show');
+  }
+
+  // =================================================================
+  // LINKS — ADMIN adds links; users see them with auto-generated icons
+  // =================================================================
+  function addAdminLink(){
+    const name = document.getElementById('link-name-input').value.trim();
+    const url = document.getElementById('link-url-input').value.trim();
+    if(!name || !url){
+      alert(currentLang==='ur' ? 'Link ka naam aur URL dono zaroori hain.' : 'Link name and URL are both required.');
+      return;
+    }
+    let cleaned = url;
+    if(!/^https?:\/\//i.test(cleaned)) cleaned = 'https://' + cleaned;
+    const item = { id: linkIdCounter++, name, url: cleaned, addedAt: new Date().toLocaleString() };
+    links.push(item);
+    saveState();
+    if(window.fbSaveLink) window.fbSaveLink(item);
+    document.getElementById('link-name-input').value = '';
+    document.getElementById('link-url-input').value = '';
+    renderAdminLinks();
+    renderUserLinks();
+  }
+
+  function deleteLink(id){
+    links = links.filter(x => x.id !== id);
+    saveState();
+    if(window.fbDeleteLink) window.fbDeleteLink(id);
+    renderAdminLinks();
+    renderUserLinks();
+  }
+
+  // Auto-generate an icon for a link: try the site's favicon, fall back to
+  // the first letter of the link name in a colored tile.
+  function linkIconHTML(link){
+    let host = '';
+    try{ host = new URL(link.url).hostname; }catch(e){ host = link.url; }
+    const letter = (link.name || '?').trim().charAt(0).toUpperCase() || '?';
+    const color = '#' + Array.from(link.name).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
+    return `
+      <div class="link-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);">
+        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <span class="link-icon-fallback" style="display:none;">${escapeHtml(letter)}</span>
+      </div>`;
+  }
+
+  function renderAdminLinks(){
+    const el = document.getElementById('links-count-label');
+    if(el) el.textContent = links.length + ' links';
+    const area = document.getElementById('admin-links-area');
+    if(links.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link add nahi hua.' : 'No links added yet.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div class="link-grid">` + links.map(l => `
+      <div class="link-card">
+        ${linkIconHTML(l)}
+        <div class="link-name">${escapeHtml(l.name)}</div>
+        <div class="link-url">${escapeHtml(l.url)}</div>
+        <div class="upload-actions">
+          <a class="btn-outline-green" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">Open</a>
+          <button class="btn-outline-danger" onclick="deleteLink(${l.id})">Delete</button>
+        </div>
+      </div>
+    `).join('') + `</div>`;
+  }
+
+  function renderUserLinks(){
+    const el = document.getElementById('user-links-count');
+    if(el) el.textContent = links.length + ' links';
+    const area = document.getElementById('user-links-area');
+    if(links.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link nahi hai.' : 'No links yet.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div class="link-grid">` + links.map(l => `
+      <div class="link-card">
+        <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-main">
+          ${linkIconHTML(l)}
+          <div class="link-name">${escapeHtml(l.name)}</div>
+        </a>
+      </div>
+    `).join('') + `</div>`;
+  }
+
+  // =================================================================
+  // USER: EDIT PROFILE (change name + profile picture)
+  // =================================================================
+  function previewProfilePhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const prev = document.getElementById('profile-photo-preview');
+      prev.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
+      prev._newPhoto = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveProfile(){
+    if(!currentUser) return;
+    const name = document.getElementById('profile-name-input').value.trim();
+    const prev = document.getElementById('profile-photo-preview');
+    const newPhoto = prev && prev._newPhoto ? prev._newPhoto : currentUser.photo;
+    if(!name){ document.getElementById('profile-success').className = 'success-msg'; document.getElementById('profile-success').textContent = currentLang==='ur' ? 'Naam khali nahi ho sakta.' : 'Name cannot be empty.'; return; }
+
+    const u = users.find(x => x.phone === currentUser.phone);
+    if(u){
+      u.name = name;
+      u.photo = newPhoto;
+      currentUser = u;
+      saveState();
+      if(window.fbSaveUser) window.fbSaveUser(u);
+      if(chatThreads[u.phone]) chatThreads[u.phone].name = name;
+      renderUserWelcome(u);
+      const ok = document.getElementById('profile-success');
+      ok.className = 'success-msg';
+      ok.textContent = currentLang==='ur' ? 'Profile update ho gaya.' : 'Profile updated.';
+    }
   }
 
   // =================================================================
@@ -900,15 +1066,12 @@
   });
 
   // Enter-key submits
-  document.addEventListener('keydown', function(e){
+document.addEventListener('keydown', function(e){
     if(e.key !== 'Enter') return;
     const activeScreen = document.querySelector('.screen.active').id;
     if(activeScreen === 'screen-portal'){
       if(document.getElementById('pane-admin').style.display !== 'none') adminLogin();
-      else {
-        const isRegister = document.getElementById('register-form').style.display !== 'none';
-        isRegister ? registerUser() : userLogin();
-      }
+      else registerUser();
     }
     if(document.activeElement && document.activeElement.id === 'ai-command-input') runAiCommandFromBox();
     if(document.activeElement && document.activeElement.id === 'user-chat-input') userSendMessage();

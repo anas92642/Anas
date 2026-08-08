@@ -40,55 +40,41 @@
             <p data-i18n="accessSub">Neeche apna role select karain</p>
           </div>
 
+          <div class="login-hero" id="portal-login-hero">
+            <img src="assets/hero-arms-crossed.png" alt="Anas Technical World">
+          </div>
+
           <div class="role-tabs">
             <button class="active" id="role-tab-user" onclick="switchRoleTab('user')" data-i18n="tabUser">User</button>
             <button id="role-tab-admin" onclick="switchRoleTab('admin')" data-i18n="tabAdmin">Admin</button>
           </div>
 
-          <!-- USER PANE -->
+          <!-- USER PANE (unified: single register+login page) -->
           <div id="pane-user">
-            <div class="tabs">
-              <button class="active" id="tab-register" onclick="switchUserTab('register')" data-i18n="btnRegister">Register</button>
-              <button id="tab-login" onclick="switchUserTab('login')" data-i18n="btnLogin">Login</button>
+            <div class="field">
+              <label data-i18n="lblName">Naam (Name)</label>
+              <input type="text" id="reg-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
             </div>
-
-            <div id="register-form">
-              <div class="field">
-                <label data-i18n="lblName">Naam (Name)</label>
-                <input type="text" id="reg-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
-              </div>
-              <div class="field">
-                <label data-i18n="lblPhone">Phone Number</label>
-                <input type="tel" id="reg-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
-              </div>
-              <div class="field">
-                <label data-i18n="lblPassword">Password</label>
-                <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
-              </div>
-              <div class="photo-field">
-                <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
-                <div>
-                  <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
-                  <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
-                </div>
-              </div>
-              <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register &amp; Continue</button>
-              <div class="error-msg" id="register-error"></div>
+            <div class="field">
+              <label data-i18n="lblPhone">Phone Number</label>
+              <input type="tel" id="reg-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
             </div>
-
-            <div id="login-form" style="display:none;">
-              <div class="field">
-                <label data-i18n="lblPhone">Phone Number</label>
-                <input type="tel" id="login-phone" data-i18n-ph="phLoginPhone" placeholder="Apna registered phone number">
-              </div>
-              <div class="field">
-                <label data-i18n="lblPassword">Password</label>
-                <input type="password" id="login-password" data-i18n-ph="phPassword" placeholder="••••••••">
-              </div>
-              <button class="btn-primary" onclick="userLogin()" data-i18n="btnLogin">Login</button>
-              <div class="error-msg" id="login-error"></div>
-              <div class="hint"><span data-i18n="noAccount">Account nahi hai?</span> <b onclick="switchUserTab('register')" data-i18n="btnRegister">Register karain</b></div>
+            <div class="field">
+              <label data-i18n="lblPassword">Password</label>
+              <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
             </div>
+            <div class="photo-field">
+              <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
+              <div>
+                <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
+                <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+              </div>
+            </div>
+            <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register &amp; Continue</button>
+            <div class="error-msg" id="register-error"></div>
+            <div class="divider-line"><span data-i18n="orDivider">ya agar account hai</span></div>
+            <button class="btn-primary ghost" onclick="userLogin()" data-i18n="btnLogin">Login (already have account)</button>
+            <div class="error-msg" id="login-error"></div>
           </div>
 
           <!-- ADMIN PANE -->
@@ -147,6 +133,28 @@
         <div id="community-area"></div>
       </div>
 
+      <div class="section" id="user-links-section">
+        <div class="list-header"><h3 data-i18n="linksTitle">// Admin Links</h3><span id="user-links-count">0 links</span></div>
+        <div id="user-links-area"></div>
+      </div>
+
+      <div class="section profile-edit-card" id="profile-edit-section">
+        <h3 data-i18n="editProfile">// Edit Profile</h3>
+        <div class="field">
+          <label data-i18n="lblName">Naam (Name)</label>
+          <input type="text" id="profile-name-input" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
+        </div>
+        <div class="photo-field">
+          <div class="profile-photo-preview" id="profile-photo-preview">👤</div>
+          <div>
+            <button type="button" class="photo-btn" onclick="document.getElementById('profile-photo-input').click()" data-i18n="btnUploadPic">Upload New Picture</button>
+            <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="previewProfilePhoto(event)">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveProfile()" data-i18n="btnSaveProfile">Save Profile</button>
+        <div class="success-msg" id="profile-success"></div>
+      </div>
+
       <div style="margin-top:26px;">
         <a class="btn-whatsapp" id="user-whatsapp" href="#" target="_blank">💬 <span data-i18n="waAdminChat">Admin se WhatsApp par baat karain</span></a>
       </div>
@@ -195,6 +203,19 @@
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
         <div id="admin-uploads-area"></div>
+      </div>
+
+      <div class="section" id="links-section">
+        <div class="list-header"><h3 data-i18n="linksLog">// Links_Control.log (Admin only)</h3><span id="links-count-label">0 links</span></div>
+        <div class="upload-drop">
+          <p data-i18n="adminLinksNote">Yahan koi bhi link (URL) add karain — ek khud-ba-khud icon ban jayega aur users ko aapka link dikhega. Har link par uska naam neeche likha hota hai.</p>
+          <div class="link-add-row">
+            <input type="text" id="link-name-input" data-i18n-ph="linkNamePh" placeholder="Link ka naam (e.g. YouTube, Website)">
+            <input type="text" id="link-url-input" data-i18n-ph="linkUrlPh" placeholder="https://...">
+            <button type="button" class="photo-btn" onclick="addAdminLink()" data-i18n="btnAddLink">+ Add Link</button>
+          </div>
+        </div>
+        <div id="admin-links-area"></div>
       </div>
 
       <div class="section" id="chat-section">
@@ -314,23 +335,22 @@
   </div>
 </div>
 
-<!-- ============ VOICE ASSISTANT WIDGET ============ -->
-<div id="assistant-widget">
+<!-- ============ CHAT WIDGET (voice assistant disabled) ============ -->
+<div class="chat-btn" id="chat-btn" onclick="toggleChatPanel()">💬<span class="badge" id="chat-badge">0</span></div>
+<div class="chat-panel" id="chat-panel">
+  <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
+  <div class="chat-log" id="user-chat-log"></div>
+  <div class="ai-input-row">
+    <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
+    <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
+  </div>
+</div>
+<div id="assistant-widget" style="display:none;">
   <div class="mic-btn" id="mic-btn" onclick="toggleListening()">🎙</div>
   <div class="assistant-panel" id="assistant-panel">
     <div class="ap-title"><span class="dot"></span> <span data-i18n="assistantTitle">Rehbar Assistant</span></div>
     <div class="assistant-log" id="assistant-log"></div>
     <div class="assistant-hint" id="assistant-hint" data-i18n="assistantHint">Mic dabain aur bolain — jaise "logout karo", "dashboard".</div>
-  </div>
-
-  <div class="chat-btn" id="chat-btn" onclick="toggleChatPanel()">💬<span class="badge" id="chat-badge">0</span></div>
-  <div class="chat-panel" id="chat-panel">
-    <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
-    <div class="chat-log" id="user-chat-log"></div>
-    <div class="ai-input-row">
-      <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
-      <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
-    </div>
   </div>
 </div>
 
