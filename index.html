@@ -49,32 +49,52 @@
             <button id="role-tab-admin" onclick="switchRoleTab('admin')" data-i18n="tabAdmin">Admin</button>
           </div>
 
-          <!-- USER PANE (unified: single register+login page) -->
+<!-- USER PANE (separate Register / Login tabs) -->
           <div id="pane-user">
-            <div class="field">
-              <label data-i18n="lblName">Naam (Name)</label>
-              <input type="text" id="reg-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
+            <div class="tabs">
+              <button class="active" id="tab-register" onclick="switchUserTab('register')" data-i18n="btnRegister">Register</button>
+              <button id="tab-login" onclick="switchUserTab('login')" data-i18n="btnLogin">Login</button>
             </div>
-            <div class="field">
-              <label data-i18n="lblPhone">Phone Number</label>
-              <input type="tel" id="reg-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
-            </div>
-            <div class="field">
-              <label data-i18n="lblPassword">Password</label>
-              <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
-            </div>
-            <div class="photo-field">
-              <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
-              <div>
-                <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
-                <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+
+            <!-- REGISTER FORM -->
+            <div id="register-form">
+              <div class="field">
+                <label data-i18n="lblName">Naam (Name)</label>
+                <input type="text" id="reg-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
               </div>
+              <div class="field">
+                <label data-i18n="lblPhone">Phone Number</label>
+                <input type="tel" id="reg-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
+              </div>
+              <div class="field">
+                <label data-i18n="lblPassword">Password</label>
+                <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
+              </div>
+              <div class="photo-field">
+                <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
+                <div>
+                  <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
+                  <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+                </div>
+              </div>
+              <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register</button>
+              <div class="error-msg" id="register-error"></div>
+              <div class="success-msg" id="register-success"></div>
             </div>
-            <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register &amp; Continue</button>
-            <div class="error-msg" id="register-error"></div>
-            <div class="divider-line"><span data-i18n="orDivider">ya agar account hai</span></div>
-            <button class="btn-primary ghost" onclick="userLogin()" data-i18n="btnLogin">Login (already have account)</button>
-            <div class="error-msg" id="login-error"></div>
+
+            <!-- LOGIN FORM -->
+            <div id="login-form" style="display:none;">
+              <div class="field">
+                <label data-i18n="lblPhone">Phone Number</label>
+                <input type="tel" id="login-phone" data-i18n-ph="phLoginPhone" placeholder="Apna registered phone number">
+              </div>
+              <div class="field">
+                <label data-i18n="lblPassword">Password</label>
+                <input type="password" id="login-password" data-i18n-ph="phPassword" placeholder="••••••••">
+              </div>
+              <button class="btn-primary" onclick="userLogin()" data-i18n="btnLoginGo">Login</button>
+              <div class="error-msg" id="login-error"></div>
+            </div>
           </div>
 
           <!-- ADMIN PANE -->

@@ -83,9 +83,9 @@ function applyState(data){
       beginLogin('admin', null);
       return true;
     }
-    if(saved.role === 'user'){
+if(saved.role === 'user'){
       const found = users.find(u => u.phone === saved.phone);
-      if(found && !found.blocked){
+      if(found && !found.blocked && found.approved !== false){
         beginLogin('user', found);
         return true;
       }
@@ -147,7 +147,7 @@ function applyState(data){
       portalSub: 'Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.',
       accessTitle: 'Access Card', accessSub: 'Neeche apna role select karain',
       tabUser: 'User', tabAdmin: 'Admin',
-      btnRegister: 'Register', btnLogin: 'Login',
+btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       lblName: 'Naam (Name)', phName: 'e.g. Ahmed Raza',
       lblPhone: 'Phone Number', phPhone: 'e.g. 03001234567', phLoginPhone: 'Apna registered phone number',
       lblPassword: 'Password', phPassword: '••••••••',
@@ -155,6 +155,9 @@ function applyState(data){
       orDivider: 'ya agar account hai',
       btnRegisterGo: 'Register & Continue', noAccount: 'Account nahi hai?',
       btnAdminLogin: 'Login as Admin', waChat: 'WhatsApp par baat karain',
+      pendingApproval: 'Aapka account abhi pending hai — Admin approval ke baad aap login kar sakengay.',
+      btnApprove: 'Approve', btnReject: 'Reject', pendingBadge: 'Pending Approval',
+      pendingStatus: 'Pending Approval', approvedStatus: 'Approved',
       authenticating: '// authenticating',
       registeredUser: 'Registered User', btnLogout: 'Logout',
       welcomeBrand: 'Welcome to Anas Technical World', welcomeSubtext: 'Aapka digital access card taiyar hai.',
@@ -195,7 +198,7 @@ function applyState(data){
       portalSub: 'Choose your role — Admin or User. Login or register from one box below.',
       accessTitle: 'Access Card', accessSub: 'Select your role below',
       tabUser: 'User', tabAdmin: 'Admin',
-      btnRegister: 'Register', btnLogin: 'Login',
+btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       lblName: 'Name', phName: 'e.g. Ahmed Raza',
       lblPhone: 'Phone Number', phPhone: 'e.g. 03001234567', phLoginPhone: 'Your registered phone number',
       lblPassword: 'Password', phPassword: '••••••••',
@@ -203,6 +206,9 @@ function applyState(data){
       orDivider: 'or if you already have an account',
       btnRegisterGo: 'Register & Continue', noAccount: "Don't have an account?",
       btnAdminLogin: 'Login as Admin', waChat: 'Chat on WhatsApp',
+      pendingApproval: 'Your account is pending — you can log in after the Admin approves it.',
+      btnApprove: 'Approve', btnReject: 'Reject', pendingBadge: 'Pending Approval',
+      pendingStatus: 'Pending Approval', approvedStatus: 'Approved',
       authenticating: '// authenticating',
       registeredUser: 'Registered User', btnLogout: 'Logout',
       welcomeBrand: 'Welcome to Anas Technical World', welcomeSubtext: 'Your digital access card is ready.',
@@ -279,19 +285,27 @@ function applyState(data){
     paneAdmin.style.display = which === 'admin' ? 'block' : 'none';
   }
 
-  function switchUserTab(which){
+function switchUserTab(which){
     const regForm = document.getElementById('register-form');
     const logForm = document.getElementById('login-form');
     const tabR = document.getElementById('tab-register');
     const tabL = document.getElementById('tab-login');
-    document.getElementById('register-error').textContent = '';
-    document.getElementById('login-error').textContent = '';
+    const regErr = document.getElementById('register-error');
+    const regOk = document.getElementById('register-success');
+    const logErr = document.getElementById('login-error');
+    if(regErr) regErr.textContent = '';
+    if(regOk) regOk.textContent = '';
+    if(logErr) logErr.textContent = '';
     if(which === 'register'){
-      regForm.style.display = 'block'; logForm.style.display = 'none';
-      tabR.classList.add('active'); tabL.classList.remove('active');
+      if(regForm) regForm.style.display = 'block';
+      if(logForm) logForm.style.display = 'none';
+      if(tabR) tabR.classList.add('active');
+      if(tabL) tabL.classList.remove('active');
     } else {
-      regForm.style.display = 'none'; logForm.style.display = 'block';
-      tabL.classList.add('active'); tabR.classList.remove('active');
+      if(regForm) regForm.style.display = 'none';
+      if(logForm) logForm.style.display = 'block';
+      if(tabL) tabL.classList.add('active');
+      if(tabR) tabR.classList.remove('active');
     }
   }
 
@@ -329,10 +343,11 @@ function applyState(data){
     if(password.length < 4){ err.textContent = currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'; return; }
     if(users.some(u => u.phone === phone)){ err.textContent = currentLang==='ur' ? 'Ye phone number pehle se registered hai. Login karain.' : 'This phone number is already registered. Please login.'; return; }
 
-    const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false };
+const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved:false };
     users.push(newUser);
     chatThreads[phone] = chatThreads[phone] || { name, messages: [] };
     saveState();
+    if(window.fbSaveUser) window.fbSaveUser(newUser);
 
     document.getElementById('reg-name').value = '';
     document.getElementById('reg-phone').value = '';
@@ -340,18 +355,26 @@ function applyState(data){
     document.getElementById('reg-photo-preview').innerHTML = t('photoWord');
     pendingPhoto = null;
 
-    beginLogin('user', newUser);
+    // New accounts are NOT auto-logged-in — they await Admin approval.
+    const okEl = document.getElementById('register-success');
+    if(okEl) okEl.textContent = t('pendingApproval');
+    switchUserTab('login');
+    const loginPhoneEl = document.getElementById('login-phone');
+    if(loginPhoneEl) loginPhoneEl.value = phone;
   }
 
 function userLogin(){
-    const phone = document.getElementById('reg-phone').value.trim();
-    const password = document.getElementById('reg-password').value;
+    const phoneInput = document.getElementById('login-phone');
+    const passwordInput = document.getElementById('login-password');
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const password = passwordInput ? passwordInput.value : '';
     const err = document.getElementById('login-error');
     err.textContent = '';
     const found = users.find(u => u.phone === phone);
     if(!found){ err.textContent = currentLang==='ur' ? 'Ye phone number registered nahi. Pehle register karain.' : 'This phone number is not registered. Please register first.'; return; }
     if(found.password !== password){ err.textContent = currentLang==='ur' ? 'Password ghalat hai.' : 'Incorrect password.'; return; }
     if(found.blocked){ err.textContent = (currentLang==='ur' ? 'Ye account block kar diya gaya hai. Admin se rabta karain: ' : 'This account has been blocked. Contact Admin: ') + '+923074499097'; return; }
+    if(found.approved === false){ err.textContent = t('pendingApproval'); return; }
     beginLogin('user', found);
   }
 
@@ -491,20 +514,30 @@ function logout(){
       area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi user register nahi hua.' : 'No users have registered yet.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="user-grid">` + users.map(u => `
-      <div class="user-row ${u.blocked ? 'blocked' : ''}">
+area.innerHTML = `<div class="user-grid">` + users.map(u => {
+      const isPending = u.approved === false;
+      const statusBadge = isPending
+        ? `<div class="badge-pending">● ${t('pendingBadge')}</div>`
+        : (u.blocked ? `<div class="badge-blocked">● ${currentLang==='ur'?'Blocked':'Blocked'}</div>` : `<div class="badge-approved">● ${t('approvedStatus')}</div>`);
+      const approveBtns = isPending
+        ? `<button class="btn-outline-green" onclick="approveUser('${u.phone}')">✓ ${t('btnApprove')}</button>
+           <button class="btn-outline-danger" onclick="rejectUser('${u.phone}')">✕ ${t('btnReject')}</button>`
+        : '';
+      return `
+      <div class="user-row ${u.blocked ? 'blocked' : ''} ${isPending ? 'pending' : ''}">
         <div class="serial">#${String(u.serial).padStart(3,'0')}</div>
         <div class="ph">${u.photo ? `<img src="${u.photo}">` : initials(u.name)}</div>
         <div class="info">
           <div class="n">${escapeHtml(u.name)} <span class="presence-dot ${onlinePhones.has(u.phone) ? 'is-online' : 'is-offline'}" title="${onlinePhones.has(u.phone) ? 'Online' : 'Offline'}"></span></div>
           <div class="p">${escapeHtml(u.phone)}</div>
           <div class="e">ERP ${u.erp}</div>
-          ${u.blocked ? `<div class="badge-blocked">● ${currentLang==='ur'?'Blocked':'Blocked'}</div>` : ''}
+          ${statusBadge}
         </div>
         <div class="actions">
-          ${u.blocked
+          ${approveBtns}
+          ${u.blocked && !isPending
             ? `<button class="btn-outline-green" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Unblock':'Unblock'}</button>`
-            : `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>`}
+            : (!isPending ? `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>` : '')}
           <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
           <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
           <button class="btn-outline-green" onclick="viewUserPassword('${u.phone}')">👁 View Password</button>
@@ -512,7 +545,8 @@ function logout(){
           <button class="btn-outline-danger" onclick="deleteUser('${u.phone}')">🗑 Delete</button>
         </div>
       </div>
-    `).join('') + `</div>`;
+    `;
+    }).join('') + `</div>`;
   }
 
   // Tracks which users' phones are currently online — populated by
