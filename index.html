@@ -74,7 +74,6 @@
               </div>
               <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register &amp; Continue</button>
               <div class="error-msg" id="register-error"></div>
-              <div class="success-msg" id="register-success"></div>
             </div>
 
             <div id="login-form" style="display:none;">
@@ -191,16 +190,9 @@
       <div class="section" id="uploads-section">
         <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
         <div class="upload-drop">
-          <p data-i18n="adminUploadNote">Jo bhi file ya link yahan upload karain, wo publish karne ke baad users ki side par show hogi. Har upload se pehle item ka naam zaroor likhain.</p>
-          <div class="field">
-            <label data-i18n="itemName">Item Name (zaroori)</label>
-            <input type="text" id="admin-item-name" data-i18n-ph="itemNamePh" placeholder="e.g. Invoice, PDF, Website Link...">
-          </div>
-          <div class="upload-control-row">
-            <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
-            <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
-            <button type="button" class="photo-btn" onclick="handleAdminLinkPrompt()" data-i18n="btnAddLink">+ Add Link</button>
-          </div>
+          <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
+          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
+          <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
         <div id="admin-uploads-area"></div>
       </div>
@@ -322,16 +314,25 @@
   </div>
 </div>
 
-  <!-- ============ USER CHAT WIDGET ============ -->
+<!-- ============ VOICE ASSISTANT WIDGET ============ -->
+<div id="assistant-widget">
+  <div class="mic-btn" id="mic-btn" onclick="toggleListening()">🎙</div>
+  <div class="assistant-panel" id="assistant-panel">
+    <div class="ap-title"><span class="dot"></span> <span data-i18n="assistantTitle">Rehbar Assistant</span></div>
+    <div class="assistant-log" id="assistant-log"></div>
+    <div class="assistant-hint" id="assistant-hint" data-i18n="assistantHint">Mic dabain aur bolain — jaise "logout karo", "dashboard".</div>
+  </div>
+
   <div class="chat-btn" id="chat-btn" onclick="toggleChatPanel()">💬<span class="badge" id="chat-badge">0</span></div>
-    <div class="chat-panel" id="chat-panel">
-      <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
-      <div class="chat-log" id="user-chat-log"></div>
-      <div class="ai-input-row">
-        <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
-        <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
-      </div>
+  <div class="chat-panel" id="chat-panel">
+    <div class="cp-title" id="chat-panel-title" data-i18n="chatWithAdmin">Admin Se Chat</div>
+    <div class="chat-log" id="user-chat-log"></div>
+    <div class="ai-input-row">
+      <input type="text" id="user-chat-input" data-i18n-ph="typeMsg" placeholder="Message likhain...">
+      <button onclick="userSendMessage()" data-i18n="btnSend">Send</button>
     </div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>

@@ -310,17 +310,12 @@
     const phone = document.getElementById('reg-phone').value.trim();
     const password = document.getElementById('reg-password').value;
     const err = document.getElementById('register-error');
-    const ok = document.getElementById('register-success');
-    err.textContent = ''; ok.textContent = '';
+    err.textContent = '';
     if(!name || !phone || !password){ err.textContent = currentLang==='ur' ? 'Naam, phone number aur password zaroori hain.' : 'Name, phone number and password are required.'; return; }
     if(password.length < 4){ err.textContent = currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'; return; }
     if(users.some(u => u.phone === phone)){ err.textContent = currentLang==='ur' ? 'Ye phone number pehle se registered hai. Login karain.' : 'This phone number is already registered. Please login.'; return; }
 
-    // New users are NOT approved yet — they must wait for admin approval
-    // before they can log in. The `approved` flag is false by default.
-    // Legacy users (already in storage without an `approved` field) are
-    // treated as approved in `isUserApproved()` so nothing breaks for them.
-    const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved:false };
+    const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false };
     users.push(newUser);
     chatThreads[phone] = chatThreads[phone] || { name, messages: [] };
     saveState();
@@ -330,21 +325,8 @@
     document.getElementById('reg-password').value = '';
     document.getElementById('reg-photo-preview').innerHTML = t('photoWord');
     pendingPhoto = null;
-    err.textContent = '';
 
-    // Tell the user their request is pending admin approval. They are NOT
-    // logged in. Then switch to the login tab so they can sign in later
-    // (only once the admin has approved them).
-    ok.textContent = currentLang==='ur'
-      ? 'Aapka registration request Admin ko bhej diya gaya hai. Admin approval ke baad aap login kar saktay hain.' 
-      : 'Your registration request has been sent to the Admin. You can log in once the Admin approves you.';
-    switchUserTab('login');
-    document.getElementById('login-phone').value = phone;
-  }
-
-  // Approval helper — legacy users (no `approved` field) count as approved.
-  function isUserApproved(u){
-    return u && u.approved !== false;
+    beginLogin('user', newUser);
   }
 
   function userLogin(){
