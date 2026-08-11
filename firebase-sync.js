@@ -23,6 +23,7 @@ let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
 let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubLinks = null, fbUnsubMeta = null, fbUnsubPresence = null;
 let fbChatUnsubs = {};
 let fbKnownUserPhones = new Set();
+let fbKnownLastMsgAt = {}; // phone -> last seen lastMsgAt, used to detect new incoming messages for admin notifications
 let myPresenceRef = null;
 
 function loadFirebaseConfig(){
@@ -95,16 +96,35 @@ function startCloudListeners(){
   if(fbUnsubUsers) fbUnsubUsers();
   fbUnsubUsers = fbDb.collection('users').onSnapshot(snap => {
     const cloudUsers = [];
-    snap.forEach(doc => cloudUsers.push(doc.data()));
+    const cloudPhones = new Set();
+    snap.forEach(doc => { const d = doc.data(); cloudUsers.push(d); cloudPhones.add(d.phone); });
     const isFirstLoad = fbKnownUserPhones.size === 0 && (typeof users !== 'undefined' && users.length === 0);
     cloudUsers.forEach(u => {
       if(typeof currentRole !== 'undefined' && currentRole === 'admin' && !isFirstLoad && !fbKnownUserPhones.has(u.phone)){
         showNewUserToast(u);
       }
+      // Detect a new incoming chat message from this user (piggybacks on
+      // the already-synced users collection instead of needing a heavy
+      // collection-group listener across every chat thread).
+      if(typeof currentRole !== 'undefined' && currentRole === 'admin' && !isFirstLoad
+         && u.lastMsgFrom === 'user' && (u.lastMsgAt || 0) > (fbKnownLastMsgAt[u.phone] || 0)
+         && typeof openThreadPhone !== 'undefined' && openThreadPhone !== u.phone){
+        const title = (typeof currentLang !== 'undefined' && currentLang === 'ur') ? 'Naya Message' : 'New Message';
+        const body = (typeof currentLang !== 'undefined' && currentLang === 'ur')
+          ? (u.name + ' ne aapko message bheja hai.')
+          : (u.name + ' sent you a message.');
+        if(typeof pushAdminNotification === 'function') pushAdminNotification(u.name + ' ne aapko message bheja hai.', u.name + ' sent you a message.');
+        if(typeof fireBrowserNotification === 'function') fireBrowserNotification(title, body);
+      }
+      if(u.lastMsgAt) fbKnownLastMsgAt[u.phone] = u.lastMsgAt;
       fbKnownUserPhones.add(u.phone);
     });
     if(typeof users !== 'undefined') {
-      users = cloudUsers.sort((a,b) => (a.serial || 0) - (b.serial || 0));
+      // Merge instead of overwrite: keep any local-only user record that
+      // hasn't made it to the cloud yet (e.g. a save that failed/was still
+      // in flight) instead of letting this snapshot silently wipe it out.
+      const localOnly = users.filter(u => !cloudPhones.has(u.phone));
+      users = cloudUsers.concat(localOnly).sort((a,b) => (a.serial || 0) - (b.serial || 0));
     }
     if(typeof saveState === 'function') saveState();
     if(typeof currentRole !== 'undefined' && currentRole === 'admin'){
@@ -112,8 +132,8 @@ function startCloudListeners(){
       if(screen && screen.classList.contains('active')){
         const st = document.getElementById('stat-total');
         const lc = document.getElementById('list-count');
-        if(st) st.textContent = cloudUsers.length;
-        if(lc) lc.textContent = cloudUsers.length + ' records';
+        if(st) st.textContent = users.length;
+        if(lc) lc.textContent = users.length + ' records';
         if(typeof renderUsersList === 'function') renderUsersList();
       }
     }
@@ -123,9 +143,13 @@ function startCloudListeners(){
   if(fbUnsubUploads) fbUnsubUploads();
   fbUnsubUploads = fbDb.collection('uploads').onSnapshot(snap => {
     const cloudUploads = [];
-    snap.forEach(doc => cloudUploads.push(doc.data()));
+    const cloudIds = new Set();
+    snap.forEach(doc => { const d = doc.data(); cloudUploads.push(d); cloudIds.add(d.id); });
     if(typeof uploads !== 'undefined'){
-      uploads = cloudUploads.sort((a,b) => a.id - b.id);
+      // Same merge principle as users: don't let a slow/failed sync make
+      // an admin's just-added upload disappear from their own screen.
+      const localOnly = uploads.filter(u => !cloudIds.has(u.id));
+      uploads = cloudUploads.concat(localOnly).sort((a,b) => a.id - b.id);
     }
     if(typeof saveState === 'function') saveState();
 if(typeof currentRole !== 'undefined'){
@@ -138,9 +162,11 @@ if(typeof currentRole !== 'undefined'){
   if(typeof fbUnsubLinks !== 'undefined' && fbUnsubLinks) fbUnsubLinks();
   fbUnsubLinks = fbDb.collection('links').onSnapshot(snap => {
     const cloudLinks = [];
-    snap.forEach(doc => cloudLinks.push(doc.data()));
+    const cloudIds = new Set();
+    snap.forEach(doc => { const d = doc.data(); cloudLinks.push(d); cloudIds.add(d.id); });
     if(typeof links !== 'undefined'){
-      links = cloudLinks.sort((a,b) => a.id - b.id);
+      const localOnly = links.filter(l => !cloudIds.has(l.id));
+      links = cloudLinks.concat(localOnly).sort((a,b) => a.id - b.id);
     }
     if(typeof saveState === 'function') saveState();
     if(typeof currentRole !== 'undefined'){
@@ -159,6 +185,10 @@ if(typeof currentRole !== 'undefined'){
       if(typeof applyAnnouncement === 'function') applyAnnouncement(); 
     }
     if(d.adminPassword && typeof ADMIN !== 'undefined'){ ADMIN.password = d.adminPassword; }
+    if(Array.isArray(d.broadcastNotifications) && typeof broadcastNotifications !== 'undefined'){
+      broadcastNotifications = d.broadcastNotifications;
+      if(typeof renderNotifBell === 'function') renderNotifBell();
+    }
     if(typeof saveState === 'function') saveState();
   }, err => showFbError('meta', err));
 
@@ -225,6 +255,19 @@ function showFbError(context, err){
 
 function showNewUserToast(u){
   const area = document.getElementById('new-user-toast-area');
+  if(typeof pushAdminNotification === 'function'){
+    pushAdminNotification(
+      'Nayi registration request: "' + u.name + '" (' + u.phone + ') — approval ka intezar hai.',
+      'New registration request: "' + u.name + '" (' + u.phone + ') — awaiting approval.'
+    );
+  }
+  if(typeof fireBrowserNotification === 'function'){
+    const isUr = typeof currentLang !== 'undefined' && currentLang === 'ur';
+    fireBrowserNotification(
+      isUr ? 'Nayi Registration Request' : 'New Registration Request',
+      u.name + ' — ' + u.phone
+    );
+  }
   if(!area) return;
   const div = document.createElement('div');
   div.className = 'new-user-toast';
@@ -262,13 +305,13 @@ window.addEventListener('beforeunload', clearMyPresence);
 // -----------------------------------------------------------------
 // PUSH LOCAL CHANGES TO CLOUD
 // -----------------------------------------------------------------
-function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>console.warn(e)); }
-function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).delete().catch(e=>console.warn(e)); }
-function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>console.warn(e)); }
-function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>console.warn(e)); }
-function fbSaveLink(l){ if(fbReady) fbDb.collection('links').doc(String(l.id)).set(l).catch(e=>console.warn(e)); }
-function fbDeleteLink(id){ if(fbReady) fbDb.collection('links').doc(String(id)).delete().catch(e=>console.warn(e)); }
-function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password }, {merge:true}).catch(e=>console.warn(e)); }
+function fbSaveUser(u){ if(fbReady) fbDb.collection('users').doc(u.phone).set(u).catch(e=>{ console.warn(e); showFbError('save-user', e); }); }
+function fbDeleteUser(phone){ if(fbReady) fbDb.collection('users').doc(phone).delete().catch(e=>{ console.warn(e); showFbError('delete-user', e); }); }
+function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id)).set(u).catch(e=>{ console.warn(e); showFbError('save-upload', e); }); }
+function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>{ console.warn(e); showFbError('delete-upload', e); }); }
+function fbSaveLink(l){ if(fbReady) fbDb.collection('links').doc(String(l.id)).set(l).catch(e=>{ console.warn(e); showFbError('save-link', e); }); }
+function fbDeleteLink(id){ if(fbReady) fbDb.collection('links').doc(String(id)).delete().catch(e=>{ console.warn(e); showFbError('delete-link', e); }); }
+function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password, broadcastNotifications: (typeof broadcastNotifications !== 'undefined' ? broadcastNotifications : []) }, {merge:true}).catch(e=>{ console.warn(e); showFbError('save-meta', e); }); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;
@@ -369,25 +412,34 @@ function wrapForCloudSync(){
     };
   }
 
-  if(window.handleAdminUpload){
-    const _handleAdminUpload = window.handleAdminUpload;
-    window.handleAdminUpload = function(e){
-      const before = typeof uploads !== 'undefined' ? uploads.length : 0;
-      _handleAdminUpload(e);
-      setTimeout(() => { if(fbReady && typeof uploads !== 'undefined' && uploads.length > before) fbSaveUpload(uploads[uploads.length - 1]); }, 300);
-    };
-  }
-
-  if(window.setUploadStatus){
-    const _setUploadStatus = window.setUploadStatus;
-    window.setUploadStatus = function(id, status){
-      _setUploadStatus(id, status);
-      if(fbReady && typeof uploads !== 'undefined'){
-        const u = uploads.find(x => x.id === id);
-        if(u) fbSaveUpload(u);
+  if(window.approveUser){
+    const _approveUser = window.approveUser;
+    window.approveUser = function(phone){
+      _approveUser(phone);
+      if(fbReady && typeof users !== 'undefined'){
+        const u = users.find(x => x.phone === phone);
+        if(u) fbSaveUser(u);
       }
     };
   }
+
+  if(window.rejectUser){
+    const _rejectUser = window.rejectUser;
+    window.rejectUser = function(phone){
+      const existed = typeof users !== 'undefined' && users.some(x => x.phone === phone);
+      _rejectUser(phone);
+      if(fbReady && existed && typeof users !== 'undefined' && !users.some(x => x.phone === phone)){
+        fbDeleteUser(phone);
+      }
+    };
+  }
+
+  // NOTE: handleAdminUpload / setUploadStatus already sync to Firestore
+  // directly inside script.js (they call fbSaveUpload themselves right
+  // where the item actually exists) — no wrapping needed here. The old
+  // wrapper used to fire fbSaveUpload() based on a setTimeout guess of
+  // when the (async, image-compressing) upload would be done, which was
+  // unreliable and part of why publishes used to silently fail to sync.
 
 if(window.deleteUpload){
     const _deleteUpload = window.deleteUpload;
@@ -461,6 +513,10 @@ if(window.deleteUpload){
       if(!val || typeof currentUser === 'undefined' || !currentUser) return;
       if(fbReady){
         fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
+        // Lightweight ping on the user's own doc — the already-live
+        // `users` listener picks this up so Admin gets a real-time
+        // notification without needing a separate listener per thread.
+        fbDb.collection('users').doc(currentUser.phone).set({ lastMsgAt: Date.now(), lastMsgFrom: 'user' }, {merge:true}).catch(e=>console.warn(e));
         if(input) input.value = '';
         maybeAiAutoReply(currentUser.phone, val);
       } else {
@@ -477,6 +533,10 @@ if(window.deleteUpload){
       if(!val || typeof openThreadPhone === 'undefined' || !openThreadPhone) return;
       if(fbReady){
         fbSendChatMessage(openThreadPhone, { from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
+        fbDb.collection('users').doc(openThreadPhone).set({ lastMsgFrom: 'admin' }, {merge:true}).catch(e=>console.warn(e));
+        if(typeof pushUserNotification === 'function'){
+          pushUserNotification(openThreadPhone, 'Admin ne aapko ek naya message bheja hai.', 'Admin has sent you a new message.');
+        }
         if(input) input.value = '';
       } else {
         _adminSendMessage();

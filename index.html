@@ -135,7 +135,16 @@
             <div class="role" data-i18n="registeredUser">Registered User</div>
           </div>
         </div>
-        <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+        <div class="topbar-actions">
+          <div class="notif-wrap">
+            <button class="notif-bell" id="notif-bell-btn" onclick="toggleNotifPanel()" data-i18n-aria="notifTitle">🔔<span class="notif-badge" id="notif-badge">0</span></button>
+            <div class="notif-panel" id="notif-panel">
+              <div class="notif-panel-header" data-i18n="notifTitle">// Notifications</div>
+              <div id="notif-list"></div>
+            </div>
+          </div>
+          <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+        </div>
       </div>
 
       <div class="welcome-circle-wrap" id="welcome-circle-block">
@@ -194,7 +203,16 @@
             <div class="role" id="admin-role-label">Administrator · ERP 92642</div>
           </div>
         </div>
-        <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+        <div class="topbar-actions">
+          <div class="notif-wrap">
+            <button class="notif-bell" id="notif-bell-btn" onclick="toggleNotifPanel()" data-i18n-aria="notifTitle">🔔<span class="notif-badge" id="notif-badge">0</span></button>
+            <div class="notif-panel" id="notif-panel">
+              <div class="notif-panel-header" data-i18n="notifTitle">// Notifications</div>
+              <div id="notif-list"></div>
+            </div>
+          </div>
+          <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+        </div>
       </div>
       <div class="welcome-hero" style="margin-bottom:22px;">
         <div class="eyebrow" data-i18n="accessGranted">// Access Granted</div>
@@ -291,6 +309,14 @@
               <input type="checkbox" id="ai-standin-toggle" onchange="toggleAiStandIn()"> Enable AI stand-in when I'm offline
             </label>
             <div class="success-msg" id="ai-standin-status"></div>
+          </div>
+          <div class="settings-card">
+            <h4 data-i18n="browserNotifTitle">// Browser Notifications</h4>
+            <div class="note" data-i18n="browserNotifNote">Ye ON karne par, jab bhi koi nayi registration request aaye ya koi user aapko message bheje, to aapko is browser ki taraf se ek direct notification milegi — chahe tab khula na bhi ho. (Chrome/Edge apni taraf se ek baar permission pop-up dikhayega, use "Allow" karain.)</div>
+            <label style="display:flex; align-items:center; gap:8px; font-family:var(--font-m); font-size:13px; margin-top:8px;">
+              <input type="checkbox" id="browser-notif-toggle" onchange="toggleBrowserNotifications()"> <span data-i18n="browserNotifToggleLabel">Enable browser notifications</span>
+            </label>
+            <div class="success-msg" id="browser-notif-status"></div>
           </div>
         </div>
       </div>

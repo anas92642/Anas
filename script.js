@@ -22,9 +22,11 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let siteAnnouncement = '';
   let currentLang = 'ur';
   let openThreadPhone = null;
+  let broadcastNotifications = []; // site-wide notifications (new publish, new link, announcement)
+  let adminNotifications = [];     // admin-only feed (new registration requests, new messages)
 
 function collectState(){
-    return { ADMIN, users, uploads, links, chatThreads, erpCounter, uploadIdCounter, linkIdCounter, siteAnnouncement, currentLang };
+    return { ADMIN, users, uploads, links, chatThreads, erpCounter, uploadIdCounter, linkIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications };
   }
 
   function saveState(){
@@ -47,6 +49,8 @@ function applyState(data){
     linkIdCounter = data.linkIdCounter || linkIdCounter;
     siteAnnouncement = data.siteAnnouncement || '';
     currentLang = data.currentLang || 'ur';
+    broadcastNotifications = data.broadcastNotifications || [];
+    adminNotifications = data.adminNotifications || [];
   }
 
   function loadState(){
@@ -192,6 +196,10 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       backupDone: 'Backup download ho gaya.', confirmRestore: 'Ye purana data wapas load kar dega — jari rakhain?',
       restoreDone: 'Data restore ho gaya.', restoreFail: 'File parhi nahi ja saki — sahi backup file chunain.',
       noAutoBackup: 'Abhi tak koi auto-backup mojood nahi.',
+      notifTitle: '// Notifications',
+      browserNotifTitle: '// Browser Notifications',
+      browserNotifNote: 'Ye ON karne par, jab bhi koi nayi registration request aaye ya koi user aapko message bheje, to aapko is browser ki taraf se ek direct notification milegi — chahe tab khula na bhi ho. (Chrome/Edge apni taraf se ek baar permission pop-up dikhayega, use "Allow" karain.)',
+      browserNotifToggleLabel: 'Enable browser notifications',
     },
     en: {
       brand: 'SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL',
@@ -243,6 +251,10 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       backupDone: 'Backup downloaded.', confirmRestore: 'This will load the old data back — continue?',
       restoreDone: 'Data restored.', restoreFail: 'Could not read the file — pick a valid backup file.',
       noAutoBackup: 'No auto-backup exists yet.',
+      notifTitle: '// Notifications',
+      browserNotifTitle: '// Browser Notifications',
+      browserNotifNote: 'When enabled, you\'ll get a direct browser notification whenever a new registration request comes in or a user sends you a message — even if the tab isn\'t open. (Chrome/Edge will show a one-time permission pop-up — choose "Allow".)',
+      browserNotifToggleLabel: 'Enable browser notifications',
     }
   };
   function t(key){ return (translations[currentLang] && translations[currentLang][key]) || key; }
@@ -312,12 +324,10 @@ function switchUserTab(which){
   function previewPhoto(e){
     const file = e.target.files[0];
     if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(ev){
-      pendingPhoto = ev.target.result;
-      document.getElementById('reg-photo-preview').innerHTML = `<img src="${ev.target.result}" alt="preview">`;
-    };
-    reader.readAsDataURL(file);
+    compressImageFile(file, 700, 0.72).then(function(dataUrl){
+      pendingPhoto = dataUrl;
+      document.getElementById('reg-photo-preview').innerHTML = `<img src="${dataUrl}" alt="preview">`;
+    });
   }
 
   function initials(name){
@@ -328,6 +338,40 @@ function switchUserTab(which){
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+  }
+
+  // =================================================================
+  // IMAGE COMPRESSION — large uncompressed photos (multi-MB from modern
+  // phone cameras) are the #1 cause of: (a) uploads that "look" saved
+  // but silently fail to sync to the cloud (Firestore rejects documents
+  // over 1MB), and (b) a bloated localStorage / slow re-renders that
+  // feel laggy. Resizing + re-encoding as JPEG before storing fixes
+  // both at the source.
+  // =================================================================
+  function compressImageFile(file, maxDim, quality){
+    return new Promise(function(resolve, reject){
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        const img = new Image();
+        img.onload = function(){
+          let w = img.width, h = img.height;
+          if(w > maxDim || h > maxDim){
+            if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+            else { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          try{ resolve(canvas.toDataURL('image/jpeg', quality)); }
+          catch(e){ resolve(ev.target.result); } // fallback: original (e.g. tainted canvas)
+        };
+        img.onerror = function(){ resolve(ev.target.result); }; // fallback: not a decodable image
+        img.src = ev.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   // =================================================================
@@ -472,6 +516,7 @@ document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NU
     renderCommunityUploads();
     renderUserLinks();
     renderUserChatLog();
+    renderNotifBell();
     showScreen('screen-welcome-user');
   }
 
@@ -486,6 +531,9 @@ document.getElementById('stat-unread').textContent = countUnread();
     renderAdminUploads();
     renderAdminLinks();
     renderThreadList();
+    renderNotifBell();
+    const notifToggle = document.getElementById('browser-notif-toggle');
+    if(notifToggle) notifToggle.checked = isBrowserNotifEnabled();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
     showScreen('screen-welcome-admin');
   }
@@ -584,7 +632,183 @@ function toggleBlock(phone){
     if(!u) return;
     u.blocked = !u.blocked;
     saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
     renderUsersList();
+  }
+
+  // Admin approves a pending registration request — this was previously
+  // missing entirely, which is why the "Approve" button did nothing.
+  function approveUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    u.approved = true;
+    saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    pushUserNotification(phone,
+      'Aapki registration request Admin ne approve kar di hai — ab aap login kar saktay hain!',
+      'Your registration request has been approved by the Admin — you can now log in!');
+    renderUsersList();
+    document.getElementById('stat-total').textContent = users.length;
+  }
+
+  // Admin rejects (deletes) a pending registration request — also missing.
+  function rejectUser(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    const label = currentLang==='ur'
+      ? ('Pakka "' + u.name + '" ki registration request reject kar dain? Ye account hamesha ke liye remove ho jayega.')
+      : ('Really reject "' + u.name + '"\'s registration request? This account will be permanently removed.');
+    if(!confirm(label)) return;
+    users = users.filter(x => x.phone !== phone);
+    delete chatThreads[phone];
+    saveState();
+    if(window.fbDeleteUser) window.fbDeleteUser(phone);
+    renderUsersList();
+    renderThreadList();
+    document.getElementById('stat-total').textContent = users.length;
+    document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
+  }
+
+  // =================================================================
+  // NOTIFICATIONS
+  //  - broadcastNotifications: site-wide (new publish, new link, announcement)
+  //  - per-user u.notifications: personal (e.g. "your account was approved")
+  //  - adminNotifications: admin-only feed (new registration, new messages)
+  // =================================================================
+  function pushBroadcastNotification(textUr, textEn){
+    broadcastNotifications.unshift({ id: Date.now() + Math.random(), textUr, textEn, time: new Date().toLocaleString(), ts: Date.now() });
+    broadcastNotifications = broadcastNotifications.slice(0, 30);
+    saveState();
+    if(window.fbSaveMeta) window.fbSaveMeta();
+    renderNotifBell();
+  }
+
+  function pushUserNotification(phone, textUr, textEn){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    u.notifications = u.notifications || [];
+    u.notifications.unshift({ id: Date.now() + Math.random(), textUr, textEn, time: new Date().toLocaleString(), ts: Date.now(), read:false });
+    u.notifications = u.notifications.slice(0, 30);
+    saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    if(currentRole === 'user' && currentUser && currentUser.phone === phone) renderNotifBell();
+  }
+
+  function pushAdminNotification(textUr, textEn){
+    adminNotifications.unshift({ id: Date.now() + Math.random(), textUr, textEn, time: new Date().toLocaleString(), ts: Date.now(), read:false });
+    adminNotifications = adminNotifications.slice(0, 30);
+    saveState();
+    if(currentRole === 'admin') renderNotifBell();
+  }
+
+  function combinedNotifList(){
+    if(currentRole === 'admin'){
+      return adminNotifications.slice();
+    }
+    if(currentRole === 'user' && currentUser){
+      const u = users.find(x => x.phone === currentUser.phone) || currentUser;
+      const personal = (u.notifications || []).map(n => Object.assign({}, n, { personal:true }));
+      const seenAt = u.lastSeenBroadcastAt || 0;
+      const bcast = broadcastNotifications.map(n => Object.assign({}, n, { personal:false, read: n.ts <= seenAt }));
+      return personal.concat(bcast).sort((a,b) => b.ts - a.ts);
+    }
+    return [];
+  }
+
+  function unreadNotifCount(){
+    return combinedNotifList().filter(n => !n.read).length;
+  }
+
+  function renderNotifBell(){
+    const badge = document.getElementById('notif-badge');
+    const count = unreadNotifCount();
+    if(badge){
+      badge.textContent = count > 9 ? '9+' : String(count);
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+    const list = document.getElementById('notif-list');
+    if(!list) return;
+    const items = combinedNotifList();
+    if(items.length === 0){
+      list.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi notification nahi.' : 'No notifications yet.'}</div>`;
+      return;
+    }
+    list.innerHTML = items.map(n => `
+      <div class="notif-item ${n.read ? '' : 'unread'}">
+        <div class="notif-text">${escapeHtml(currentLang==='ur' ? n.textUr : n.textEn)}</div>
+        <div class="notif-time">${n.time}</div>
+      </div>
+    `).join('');
+  }
+
+  function toggleNotifPanel(){
+    const panel = document.getElementById('notif-panel');
+    if(!panel) return;
+    const opening = !panel.classList.contains('show');
+    panel.classList.toggle('show');
+    if(opening){
+      if(currentRole === 'admin'){
+        adminNotifications.forEach(n => n.read = true);
+        saveState();
+      } else if(currentRole === 'user' && currentUser){
+        const u = users.find(x => x.phone === currentUser.phone);
+        if(u){
+          (u.notifications || []).forEach(n => n.read = true);
+          u.lastSeenBroadcastAt = Date.now();
+          saveState();
+          if(window.fbSaveUser) window.fbSaveUser(u);
+        }
+      }
+      renderNotifBell();
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    const panel = document.getElementById('notif-panel');
+    const bell = document.getElementById('notif-bell-btn');
+    if(!panel || !panel.classList.contains('show')) return;
+    if(panel.contains(e.target) || (bell && bell.contains(e.target))) return;
+    panel.classList.remove('show');
+  });
+
+  // =================================================================
+  // BROWSER (OS-level) NOTIFICATIONS — mainly for Admin, so new
+  // registration requests / user messages can be noticed even if the
+  // Admin isn't actively looking at the tab.
+  // =================================================================
+  function isBrowserNotifEnabled(){
+    return localStorage.getItem('atw_browser_notif') === '1' && ('Notification' in window) && Notification.permission === 'granted';
+  }
+
+  function fireBrowserNotification(title, body){
+    if(!isBrowserNotifEnabled()) return;
+    try{ new Notification(title, { body, icon: 'assets/hero-arms-crossed.png' }); }catch(e){ /* ignore */ }
+  }
+
+  function toggleBrowserNotifications(){
+    const el = document.getElementById('browser-notif-toggle');
+    const statusEl = document.getElementById('browser-notif-status');
+    if(!el) return;
+    if(el.checked){
+      if(!('Notification' in window)){
+        if(statusEl) statusEl.textContent = currentLang==='ur' ? 'Ye browser notifications support nahi karta.' : 'This browser does not support notifications.';
+        el.checked = false;
+        return;
+      }
+      Notification.requestPermission().then(function(perm){
+        if(perm === 'granted'){
+          localStorage.setItem('atw_browser_notif', '1');
+          if(statusEl) statusEl.textContent = currentLang==='ur' ? '✅ Browser notifications ON hain.' : '✅ Browser notifications are ON.';
+        } else {
+          localStorage.setItem('atw_browser_notif', '0');
+          el.checked = false;
+          if(statusEl) statusEl.textContent = currentLang==='ur' ? 'Permission nahi mili — browser settings mein site ko allow karain.' : 'Permission denied — allow notifications for this site in your browser settings.';
+        }
+      });
+    } else {
+      localStorage.setItem('atw_browser_notif', '0');
+      if(statusEl) statusEl.textContent = currentLang==='ur' ? 'Browser notifications OFF hain.' : 'Browser notifications are OFF.';
+    }
   }
 
   // Admin can see the password any user set at registration
@@ -616,26 +840,53 @@ function toggleBlock(phone){
   // =================================================================
   // UPLOADS — ADMIN ONLY. Users can only view + download published files.
   // =================================================================
+  // Cloud sync (Firestore) rejects any document over ~1MB — this is the
+  // real reason uploads used to "look" successful in the admin panel but
+  // then vanish / never actually appear as published for users on other
+  // devices. Images get auto-compressed below; other file types get a
+  // clear upfront size check instead of a silent failure later.
+  const MAX_NON_IMAGE_UPLOAD_BYTES = 700 * 1024;
+
+  function finishAdminUpload(fileName, fileType, dataUrl){
+    const item = {
+      id: uploadIdCounter++,
+      fileName: fileName,
+      fileType: fileType,
+      dataUrl: dataUrl,
+      status: 'pending',
+      uploadedAt: new Date().toLocaleString()
+    };
+    uploads.push(item);
+    saveState();
+    if(window.fbSaveUpload) window.fbSaveUpload(item);
+    renderAdminUploads();
+    renderCommunityUploads();
+  }
+
   function handleAdminUpload(e){
     const file = e.target.files[0];
     if(!file) return;
+    e.target.value = '';
+
+    if(file.type && file.type.startsWith('image/')){
+      compressImageFile(file, 1400, 0.75).then(function(dataUrl){
+        finishAdminUpload(file.name, file.type, dataUrl);
+      });
+      return;
+    }
+
+    if(file.size > MAX_NON_IMAGE_UPLOAD_BYTES){
+      alert(currentLang==='ur'
+        ? ('Ye file bohat bari hai (' + Math.round(file.size/1024) + ' KB). Cloud sync ke liye files 700 KB se chotay honi chahiyain, warna upload cloud par save nahi hogi. Chota version upload karain ya "Admin Links" mein iska link add karain.')
+        : ('This file is too large (' + Math.round(file.size/1024) + ' KB). Files must be under 700 KB to sync to the cloud, otherwise the upload will silently fail to save. Please upload a smaller version, or add a link to it under "Admin Links" instead.'));
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function(ev){
-      const item = {
-        id: uploadIdCounter++,
-        fileName: file.name,
-        fileType: file.type,
-        dataUrl: ev.target.result,
-        status: 'pending',
-        uploadedAt: new Date().toLocaleString()
-      };
-      uploads.push(item);
-      saveState();
-      renderAdminUploads();
-      renderCommunityUploads();
+      finishAdminUpload(file.name, file.type, ev.target.result);
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   }
 
   function statusBadge(status){
@@ -693,8 +944,16 @@ function toggleBlock(phone){
   function setUploadStatus(id, status){
     const u = uploads.find(x => x.id === id);
     if(!u) return;
+    const wasPublished = u.status === 'published';
     u.status = status;
     saveState();
+    if(window.fbSaveUpload) window.fbSaveUpload(u);
+    if(status === 'published' && !wasPublished){
+      pushBroadcastNotification(
+        'Admin ne ek nayi file publish ki hai: "' + u.fileName + '"',
+        'Admin published a new file: "' + u.fileName + '"'
+      );
+    }
     renderAdminUploads();
     renderCommunityUploads();
   }
@@ -702,6 +961,7 @@ function toggleBlock(phone){
   function deleteUpload(id){
     uploads = uploads.filter(x => x.id !== id);
     saveState();
+    if(window.fbDeleteUpload) window.fbDeleteUpload(id);
     renderAdminUploads();
     renderCommunityUploads();
   }
@@ -741,6 +1001,10 @@ function closeModal(){
     links.push(item);
     saveState();
     if(window.fbSaveLink) window.fbSaveLink(item);
+    pushBroadcastNotification(
+      'Admin ne ek naya link add kiya hai: "' + name + '"',
+      'Admin added a new link: "' + name + '"'
+    );
     document.getElementById('link-name-input').value = '';
     document.getElementById('link-url-input').value = '';
     renderAdminLinks();
@@ -814,13 +1078,11 @@ function closeModal(){
   function previewProfilePhoto(e){
     const file = e.target.files[0];
     if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(ev){
+    compressImageFile(file, 700, 0.72).then(function(dataUrl){
       const prev = document.getElementById('profile-photo-preview');
-      prev.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
-      prev._newPhoto = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+      prev.innerHTML = `<img src="${dataUrl}" alt="preview">`;
+      prev._newPhoto = dataUrl;
+    });
   }
 
   function saveProfile(){
@@ -873,6 +1135,12 @@ function closeModal(){
     siteAnnouncement = val;
     saveState();
     applyAnnouncement();
+    if(val){
+      pushBroadcastNotification(
+        'Naya announcement: ' + val,
+        'New announcement: ' + val
+      );
+    }
     document.getElementById('ann-success').textContent = currentLang==='ur' ? 'Announcement save ho gaya.' : 'Announcement saved.';
   }
   function clearAnnouncement(){
@@ -987,34 +1255,50 @@ function closeModal(){
     const th = chatThreads[openThreadPhone];
     th.messages.push({ from:'admin', text: val, time: new Date().toLocaleTimeString(), read:true });
     saveState();
+    pushUserNotification(openThreadPhone,
+      'Admin ne aapko ek naya message bheja hai.',
+      'Admin has sent you a new message.');
     input.value = '';
     renderAdminChatLog();
     renderThreadList();
   }
 
-  // Poll for changes every 2.5s so an open chat feels "live" within this
-  // browser (e.g. two tabs open — one as admin, one as user).
-  setInterval(() => {
-    if(!currentRole) return;
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return;
-    try{
-      const data = JSON.parse(raw);
-      chatThreads = data.chatThreads || chatThreads;
-      uploads = data.uploads || uploads;
-      users = data.users || users;
-    }catch(e){}
+  // Keep a chat feels "live" across two tabs of the SAME browser (e.g.
+  // one tab as admin, one as user) — without Firebase, this is the only
+  // way for one tab to notice another tab's changes.
+  //
+  // This used to be a setInterval() re-parsing the ENTIRE app state
+  // (including every user's photo and every uploaded file's base64 data)
+  // from localStorage every 2.5 seconds, on every logged-in session —
+  // a major, constant source of the "site feels laggy" problem, since
+  // that JSON blob only grows as more users/uploads are added.
+  //
+  // The 'storage' event fires natively (and instantly) in other tabs the
+  // moment localStorage actually changes, so we don't need to poll at
+  // all — this is both lighter AND more responsive.
+  window.addEventListener('storage', function(e){
+    if(e.key !== STORAGE_KEY || !e.newValue || !currentRole) return;
+    let data;
+    try{ data = JSON.parse(e.newValue); }catch(err){ return; }
+    chatThreads = data.chatThreads || chatThreads;
+    uploads = data.uploads || uploads;
+    users = data.users || users;
+    broadcastNotifications = data.broadcastNotifications || broadcastNotifications;
+    adminNotifications = data.adminNotifications || adminNotifications;
+
     if(currentRole === 'user' && document.getElementById('chat-panel').classList.contains('open')) renderUserChatLog();
     if(currentRole === 'user'){
       const thread = currentUser && chatThreads[currentUser.phone];
       if(thread && thread.messages.some(m => m.from==='admin' && !m.read)) document.getElementById('chat-badge').classList.add('show');
+      renderNotifBell();
     }
     if(currentRole === 'admin'){
       renderThreadList();
       if(openThreadPhone) renderAdminChatLog();
       document.getElementById('stat-unread').textContent = countUnread();
+      renderNotifBell();
     }
-  }, 2500);
+  });
 
   // =================================================================
   // GEMINI AI ASSISTANT (admin only — calls Google's Gemini API directly
