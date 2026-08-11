@@ -22,8 +22,28 @@
       "fileName": "example.jpg",
       "fileType": "image/jpeg",
       "dataUrl": "base64 data-url",
-      "status": "pending | published | unpublished",
+      "description": "optional text; any URL inside it is auto-linkified when shown",
+      "logo": "optional base64 data-url — a custom picture, or an AI-generated branded icon, shown instead of the default letter-tile",
+      "uploadedBy": "admin | moderator",
+      "submittedByPhone": "moderator's phone, or null when uploadedBy is admin",
+      "submittedByName": "moderator's name, or null when uploadedBy is admin",
+      "status": "awaiting_approval (moderator only, hidden until Admin reviews) | pending | published | unpublished",
       "uploadedAt": "readable date string"
+    }
+  ],
+
+  "links": [
+    {
+      "id": 1,
+      "name": "example",
+      "url": "https://example.com",
+      "description": "optional text (typed by Admin, or AI-written); any URL inside it is auto-linkified when shown",
+      "logo": "optional base64 data-url — a custom picture, or an AI-generated branded icon, shown instead of the favicon/letter-tile",
+      "uploadedBy": "admin | moderator",
+      "submittedByPhone": "moderator's phone, or null when uploadedBy is admin",
+      "submittedByName": "moderator's name, or null when uploadedBy is admin",
+      "status": "awaiting_approval (moderator only, hidden until Admin reviews) | approved",
+      "addedAt": "readable date string"
     }
   ],
 
