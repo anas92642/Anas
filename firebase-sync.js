@@ -20,7 +20,7 @@ const DEFAULT_FB_CONFIG = {
 };
 
 let fbApp = null, fbDb = null, fbRtdb = null, fbReady = false;
-let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubLinks = null, fbUnsubMeta = null, fbUnsubPresence = null;
+let fbUnsubUsers = null, fbUnsubUploads = null, fbUnsubLinks = null, fbUnsubMeta = null, fbUnsubPresence = null, fbUnsubPremiumReqs = null;
 let fbChatUnsubs = {};
 let fbKnownUserPhones = new Set();
 let fbKnownLastMsgAt = {}; // phone -> last seen lastMsgAt, used to detect new incoming messages for admin notifications
@@ -175,6 +175,20 @@ if(typeof currentRole !== 'undefined'){
     }
   }, err => showFbError('links', err));
 
+  // Premium requests collection (payment screenshots + Accept/Reject)
+  if(fbUnsubPremiumReqs) fbUnsubPremiumReqs();
+  fbUnsubPremiumReqs = fbDb.collection('premiumRequests').onSnapshot(snap => {
+    const cloudReqs = [];
+    const cloudIds = new Set();
+    snap.forEach(doc => { const d = doc.data(); cloudReqs.push(d); cloudIds.add(d.id); });
+    if(typeof premiumRequests !== 'undefined'){
+      const localOnly = premiumRequests.filter(r => !cloudIds.has(r.id));
+      premiumRequests = cloudReqs.concat(localOnly).sort((a,b) => a.id - b.id);
+    }
+    if(typeof saveState === 'function') saveState();
+    if(typeof currentRole !== 'undefined' && currentRole === 'admin' && typeof renderPremiumRequests === 'function') renderPremiumRequests();
+  }, err => showFbError('premiumRequests', err));
+
   // Meta doc
   if(fbUnsubMeta) fbUnsubMeta();
   fbUnsubMeta = fbDb.collection('meta').doc('site').onSnapshot(doc => {
@@ -311,6 +325,7 @@ function fbSaveUpload(u){ if(fbReady) fbDb.collection('uploads').doc(String(u.id
 function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(id)).delete().catch(e=>{ console.warn(e); showFbError('delete-upload', e); }); }
 function fbSaveLink(l){ if(fbReady) fbDb.collection('links').doc(String(l.id)).set(l).catch(e=>{ console.warn(e); showFbError('save-link', e); }); }
 function fbDeleteLink(id){ if(fbReady) fbDb.collection('links').doc(String(id)).delete().catch(e=>{ console.warn(e); showFbError('delete-link', e); }); }
+function fbSavePremiumRequest(r){ if(fbReady) fbDb.collection('premiumRequests').doc(String(r.id)).set(r).catch(e=>{ console.warn(e); showFbError('save-premium-request', e); }); }
 function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password, broadcastNotifications: (typeof broadcastNotifications !== 'undefined' ? broadcastNotifications : []) }, {merge:true}).catch(e=>{ console.warn(e); showFbError('save-meta', e); }); }
 
 function subscribeToChat(phone){

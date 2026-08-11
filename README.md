@@ -130,6 +130,35 @@ publicly.
 - Admin can now **Edit** any upload or link (name, description, and —
   for links — the URL) from the "Edit" button on its tile/card.
 
+## Premium content (pay-to-unlock)
+- Both the Admin upload form and the Admin link form now have a
+  **"🔒 Premium"** checkbox. Ticking it marks that file/link as
+  Premium — it also shows a small 🔒 badge on its icon and a "🔒
+  Premium" tag under its name everywhere it appears.
+- **Files and links now show together in one combined list** ("//
+  Admin Content" for users, "// Content_Control.log" for Admin) —
+  there's no separate "these are links" section anymore, exactly
+  like a phone home-screen of icons.
+- When a user (or Moderator) taps a Premium item, instead of opening
+  it they see a payment screen: fee **Rs 100**, JazzCash number
+  **03074499097**, name **Muhammad Anas Ishaq**, and an upload
+  button for their payment screenshot.
+- Once they upload a screenshot, it goes to Admin's new **"//
+  Premium_Requests.log"** section (Admin dashboard) with **Accept /
+  Reject** buttons and a tap-to-enlarge screenshot preview.
+- If Admin **Accepts**, that Premium item unlocks permanently for
+  that exact user — from then on it opens directly, every time, no
+  re-payment needed. If Admin **Rejects**, the user is notified and
+  can try again with a corrected screenshot.
+- **Admin always bypasses the lock** — Premium items always open
+  directly for Admin, so Admin can still preview/manage them.
+- Admin can flip an item's Premium status on/off anytime from its
+  "🔒 Premium / 🔓 Unlock" button in the Content_Control list.
+- This syncs across devices the same way uploads/links do, once
+  Cloud Sync (Firebase) is connected (see below) — a new
+  `premiumRequests` collection carries the payment screenshots and
+  their Accept/Reject status.
+
 ## Gemini AI panel
 The admin's "Gemini AI Assistant" panel calls Google's Gemini API directly
 from the browser using an API key the admin enters (get one free at

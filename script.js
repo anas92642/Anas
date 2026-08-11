@@ -10,12 +10,21 @@
 
 let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let users = [];        // {serial, erp, name, phone, password, photo, blocked}
-  let uploads = [];      // {id, fileName, fileType, dataUrl, status, uploadedAt}
-  let links = [];        // {id, name, url, addedAt}
+  let uploads = [];      // {id, fileName, fileType, dataUrl, status, uploadedAt, premium}
+  let links = [];        // {id, name, url, addedAt, premium}
   let chatThreads = {};  // phone -> {name, messages:[{from:'user'|'admin', text, time, read}]}
+  // Premium unlock requests — a user pays the fee, uploads a payment
+  // screenshot, and Admin Accepts/Rejects it. {id, itemKind:'upload'|'link',
+  // itemId, itemName, userPhone, userName, screenshot(dataUrl), status:
+  // 'pending'|'approved'|'rejected', requestedAt}
+  let premiumRequests = [];
+  const PREMIUM_FEE = 100;
+  const PREMIUM_JAZZCASH_NUMBER = '03074499097';
+  const PREMIUM_JAZZCASH_NAME = 'Muhammad Anas Ishaq';
   let erpCounter = 20000 + Math.floor(Math.random() * 70000);
   let uploadIdCounter = 1;
   let linkIdCounter = 1;
+  let premiumReqIdCounter = 1;
   let pendingPhoto = null;
   let currentUser = null;
   let currentRole = null;    // 'admin' | 'user'
@@ -26,7 +35,7 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let adminNotifications = [];     // admin-only feed (new registration requests, new messages)
 
 function collectState(){
-    return { ADMIN, users, uploads, links, chatThreads, erpCounter, uploadIdCounter, linkIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications };
+    return { ADMIN, users, uploads, links, chatThreads, premiumRequests, erpCounter, uploadIdCounter, linkIdCounter, premiumReqIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications };
   }
 
   function saveState(){
@@ -44,9 +53,11 @@ function applyState(data){
     uploads = data.uploads || [];
     links = data.links || [];
     chatThreads = data.chatThreads || {};
+    premiumRequests = data.premiumRequests || [];
     erpCounter = data.erpCounter || erpCounter;
     uploadIdCounter = data.uploadIdCounter || uploadIdCounter;
     linkIdCounter = data.linkIdCounter || linkIdCounter;
+    premiumReqIdCounter = data.premiumReqIdCounter || premiumReqIdCounter;
     siteAnnouncement = data.siteAnnouncement || '';
     currentLang = data.currentLang || 'ur';
     broadcastNotifications = data.broadcastNotifications || [];
@@ -539,9 +550,9 @@ document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NU
 document.getElementById('stat-unread').textContent = countUnread();
     document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
     renderUsersList();
-    renderAdminUploads();
-    renderAdminLinks();
+    renderAdminContent();
     renderModSubmissionsForAdmin();
+    renderPremiumRequests();
     renderThreadList();
     renderNotifBell();
     const notifToggle = document.getElementById('browser-notif-toggle');
@@ -1023,6 +1034,7 @@ function toggleBlock(phone){
       submittedByPhone: extra.submittedByPhone || null,
       submittedByName: extra.submittedByName || null,
       status: extra.status || 'pending',
+      premium: !!extra.premium,
       uploadedAt: new Date().toLocaleString()
     };
     uploads.push(item);
@@ -1055,6 +1067,7 @@ function toggleBlock(phone){
       descId: 'admin-upload-desc-input',
       picId: 'admin-upload-pic-input',
       picStatusId: 'admin-upload-pic-status',
+      premiumId: 'admin-upload-premium-input',
       uploadedBy: 'admin'
     });
   }
@@ -1068,6 +1081,7 @@ function toggleBlock(phone){
       descId: 'mod-upload-desc-input',
       picId: 'mod-upload-pic-input',
       picStatusId: 'mod-upload-pic-status',
+      premiumId: 'mod-upload-premium-input',
       uploadedBy: 'moderator'
     });
   }
@@ -1076,9 +1090,11 @@ function toggleBlock(phone){
     const nameInput = document.getElementById(cfg.nameId);
     const descInput = document.getElementById(cfg.descId);
     const picInput = document.getElementById(cfg.picId);
+    const premiumInput = cfg.premiumId ? document.getElementById(cfg.premiumId) : null;
     const displayName = nameInput ? nameInput.value.trim() : '';
     const description = descInput ? descInput.value.trim() : '';
     const customLogo = picInput ? picInput._customLogo : null;
+    const isPremium = premiumInput ? !!premiumInput.checked : false;
     const file = e.target.files[0];
     if(!file) return;
     e.target.value = '';
@@ -1097,7 +1113,8 @@ function toggleBlock(phone){
       uploadedBy: cfg.uploadedBy,
       submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
       submittedByName: isModerator && currentUser ? currentUser.name : null,
-      status: isModerator ? 'awaiting_approval' : 'pending'
+      status: isModerator ? 'awaiting_approval' : 'pending',
+      premium: isPremium
     };
 
     const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || [''])[0];
@@ -1106,6 +1123,7 @@ function toggleBlock(phone){
     function reset(){
       if(nameInput) nameInput.value = '';
       if(descInput) descInput.value = '';
+      if(premiumInput) premiumInput.checked = false;
       clearCustomLogo(cfg.picId, cfg.picStatusId);
     }
 
@@ -1169,22 +1187,130 @@ function toggleBlock(phone){
   // the link tiles below. A custom/AI logo (u.logo) always wins; then a
   // real image file; then the branded letter-tile fallback.
   function uploadIconHTML(u){
+    const lock = u.premium ? `<span class="lock-corner" title="Premium">🔒</span>` : '';
     if(u.logo){
-      return `<div class="app-icon"><img src="${u.logo}">${brandMarkHTML()}</div>`;
+      return `<div class="app-icon">${lock}<img src="${u.logo}">${brandMarkHTML()}</div>`;
     }
     if(u.fileType && u.fileType.startsWith('image/')){
-      return `<div class="app-icon"><img src="${u.dataUrl}"></div>`;
+      return `<div class="app-icon">${lock}<img src="${u.dataUrl}"></div>`;
     }
     const letter = (u.fileName || '?').trim().charAt(0).toUpperCase() || '?';
     const seed = String(u.fileName || '');
     const color = '#' + Array.from(seed).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
-    return `<div class="app-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);"><span class="app-icon-fallback">${escapeHtml(letter)}</span>${brandMarkHTML()}</div>`;
+    return `<div class="app-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);">${lock}<span class="app-icon-fallback">${escapeHtml(letter)}</span>${brandMarkHTML()}</div>`;
   }
 
-  // Writes the published-files list into every screen that shows it
-  // (User's "Admin Updates" AND Moderator's mirrored "Admin Updates").
-  function renderCommunityUploads(){
-    const pub = uploads.filter(u => u.status === 'published');
+  // Small "🔒 Premium" caption shown under a premium item's name/tile,
+  // so it's clear at a glance that it needs Admin's approval to open.
+  function premiumTagHTML(item){
+    if(!item.premium) return '';
+    return `<div class="premium-tag">🔒 ${currentLang==='ur' ? 'پریمیم' : 'Premium'}</div>`;
+  }
+
+  // Auto-generate an icon for a link: a custom/AI logo (link.logo) wins
+  // first, then the site's favicon, then the branded letter-tile.
+  function linkIconHTML(link){
+    const lock = link.premium ? `<span class="lock-corner" title="Premium">🔒</span>` : '';
+    if(link.logo){
+      return `<div class="link-icon">${lock}<img src="${link.logo}" style="width:100%;height:100%;object-fit:cover;">${brandMarkHTML()}</div>`;
+    }
+    let host = '';
+    try{ host = new URL(link.url).hostname; }catch(e){ host = link.url; }
+    const letter = (link.name || '?').trim().charAt(0).toUpperCase() || '?';
+    const color = '#' + Array.from(link.name).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
+    return `
+      <div class="link-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);">
+        ${lock}
+        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <span class="link-icon-fallback" style="display:none;">${escapeHtml(letter)}</span>
+        ${brandMarkHTML()}
+      </div>`;
+  }
+
+  // -----------------------------------------------------------------
+  // UNIFIED CONTENT — uploads and links used to render as two separately
+  // labelled sections ("Admin Updates" / "Admin Links"). They now render
+  // together as ONE combined feed of icon tiles, in the order Admin
+  // added them — no "this is a file" / "this is a link" grouping.
+  // -----------------------------------------------------------------
+  function buildAdminContentList(){
+    const up = uploads.filter(u => u.status !== 'awaiting_approval').map(u => Object.assign({ _kind:'upload' }, u));
+    const lk = links.filter(l => l.status !== 'awaiting_approval').map(l => Object.assign({ _kind:'link' }, l));
+    return up.concat(lk);
+  }
+  function buildPublicContentList(){
+    const up = uploads.filter(u => u.status === 'published').map(u => Object.assign({ _kind:'upload' }, u));
+    const lk = links.filter(l => l.status !== 'awaiting_approval').map(l => Object.assign({ _kind:'link' }, l));
+    return up.concat(lk);
+  }
+
+  function adminContentTileHTML(item, i){
+    if(item._kind === 'upload'){
+      return `
+      <div class="app-tile" style="animation-delay:${i*0.05}s">
+        <div class="app-icon-wrap" onclick="openFilePreview(${item.id})">${uploadIconHTML(item)}</div>
+        <div class="app-tile-name">${escapeHtml(item.fileName)}</div>
+        ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
+        ${premiumTagHTML(item)}
+        ${statusBadge(item.status)}
+        ${item.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting" style="margin-top:2px;">🛡 ${escapeHtml(item.submittedByName||'Moderator')}</div>` : ''}
+        <div class="app-tile-actions">
+          ${item.status !== 'published' ? `<button class="btn-outline-green" onclick="setUploadStatus(${item.id}, 'published')">Publish</button>` : ''}
+          ${item.status === 'published' ? `<button class="btn-outline-amber" onclick="setUploadStatus(${item.id}, 'unpublished')">Unpublish</button>` : ''}
+          <button class="btn-outline-amber" onclick="togglePremium('upload', ${item.id})">${item.premium ? '🔓' : '🔒'} Premium</button>
+          <button class="btn-outline-amber" onclick="editUpload(${item.id})">Edit</button>
+          <button class="btn-outline-danger" onclick="deleteUpload(${item.id})">Delete</button>
+        </div>
+      </div>`;
+    }
+    return `
+      <div class="link-card" style="animation-delay:${i*0.05}s">
+        ${linkIconHTML(item)}
+        <div class="link-name">${escapeHtml(item.name)}</div>
+        <div class="link-url">${escapeHtml(item.url)}</div>
+        ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
+        ${premiumTagHTML(item)}
+        ${item.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting">🛡 ${escapeHtml(item.submittedByName||'Moderator')}</div>` : ''}
+        <div class="app-tile-actions">
+          <a class="btn-outline-green" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Open</a>
+          <button class="btn-outline-amber" onclick="togglePremium('link', ${item.id})">${item.premium ? '🔓' : '🔒'} Premium</button>
+          <button class="btn-outline-amber" onclick="editLink(${item.id})">Edit</button>
+          <button class="btn-outline-danger" onclick="deleteLink(${item.id})">Delete</button>
+        </div>
+      </div>`;
+  }
+
+  // Admin's own management list — one combined grid for uploads + links
+  // (excludes moderator submissions still awaiting approval — those
+  // live in the separate approval section).
+  function renderAdminContent(){
+    const all = buildAdminContentList();
+    const countEl = document.getElementById('content-count-label');
+    if(countEl) countEl.textContent = all.length + ' records';
+    const area = document.getElementById('admin-content-area');
+    if(area){
+      if(all.length === 0){
+        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi content nahi hai.' : 'No content yet.'}</div>`;
+      } else {
+        area.innerHTML = `<div class="app-tile-grid">` + all.map((item,i) => adminContentTileHTML(item,i)).join('') + `</div>`;
+      }
+    }
+    const su = document.getElementById('stat-uploads');
+    if(su) su.textContent = uploads.filter(u => u.status !== 'awaiting_approval').length;
+  }
+  // Kept as separate names because firebase-sync.js and several call
+  // sites in this file call them individually — both now just draw the
+  // same combined grid.
+  function renderAdminUploads(){ renderAdminContent(); }
+  function renderAdminLinks(){ renderAdminContent(); }
+
+  // Writes the combined published-content feed (files + links, all in
+  // one place, in upload order) into every screen that shows it (User's
+  // "Admin Content" AND Moderator's mirrored version). Premium items
+  // carry a small 🔒 lock — tapping one that isn't unlocked yet opens
+  // the payment/approval flow instead of the item itself.
+  function renderUnifiedUserContent(){
+    const all = buildPublicContentList();
     [
       { countEl:'community-count', areaEl:'community-area' },
       { countEl:'mod-community-count', areaEl:'mod-community-area' }
@@ -1192,47 +1318,243 @@ function toggleBlock(phone){
       const area = document.getElementById(t.areaEl);
       if(!area) return;
       const countEl = document.getElementById(t.countEl);
-      if(countEl) countEl.textContent = pub.length + ' files';
-      if(pub.length === 0){
-        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak Admin ne koi file publish nahi ki.' : 'Admin has not published any files yet.'}</div>`;
+      if(countEl) countEl.textContent = all.length + (currentLang==='ur' ? ' items' : ' items');
+      if(all.length === 0){
+        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak Admin ne kuch publish nahi kiya.' : 'Admin has not published anything yet.'}</div>`;
         return;
       }
-      area.innerHTML = `<div class="app-tile-grid">` + pub.map((u,i) => `
-        <div class="app-tile" style="animation-delay:${i*0.08}s">
-          <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
-          <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
-          ${u.description ? `<div class="link-desc">${linkifyText(u.description)}</div>` : ''}
-        </div>
-      `).join('') + `</div>`;
+      area.innerHTML = `<div class="app-tile-grid">` + all.map((item,i) => {
+        if(item._kind === 'upload'){
+          return `
+          <div class="app-tile" style="animation-delay:${i*0.08}s">
+            <div class="app-icon-wrap" onclick="handleContentClick('upload', ${item.id})">${uploadIconHTML(item)}</div>
+            <div class="app-tile-name">${escapeHtml(item.fileName)}</div>
+            ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
+            ${premiumTagHTML(item)}
+          </div>`;
+        }
+        return `
+          <div class="link-card">
+            <div class="link-main" style="cursor:pointer;" onclick="handleContentClick('link', ${item.id})">
+              ${linkIconHTML(item)}
+              <div class="link-name">${escapeHtml(item.name)}</div>
+              ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
+              ${premiumTagHTML(item)}
+            </div>
+          </div>`;
+      }).join('') + `</div>`;
+    });
+  }
+  // Kept as separate names for the same reason as renderAdminUploads /
+  // renderAdminLinks above (firebase-sync.js + existing call sites).
+  function renderCommunityUploads(){ renderUnifiedUserContent(); }
+  function renderUserLinks(){ renderUnifiedUserContent(); }
+
+  // Admin flips an item's premium flag on/off directly from its tile.
+  function togglePremium(kind, id){
+    const list = kind === 'upload' ? uploads : links;
+    const item = list.find(x => x.id === id);
+    if(!item) return;
+    item.premium = !item.premium;
+    saveState();
+    if(kind === 'upload' && window.fbSaveUpload) window.fbSaveUpload(item);
+    if(kind === 'link' && window.fbSaveLink) window.fbSaveLink(item);
+    renderAdminContent();
+    renderUnifiedUserContent();
+  }
+
+  // -----------------------------------------------------------------
+  // PREMIUM UNLOCK FLOW — tapping a locked item (as a normal user or
+  // moderator; Admin always bypasses the lock) opens a payment modal
+  // with the JazzCash number + fee, a screenshot-upload button, and
+  // shows the live status of that user's request for that exact item.
+  // -----------------------------------------------------------------
+  let premiumModalTarget = null; // { kind:'upload'|'link', id }
+  let premiumScreenshotData = null;
+
+  function handleContentClick(kind, id){
+    const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
+    if(!item) return;
+    if(!item.premium || currentRole === 'admin' || hasPremiumApproved(kind, id)){
+      if(kind === 'upload') openFilePreview(id);
+      else window.open(item.url, '_blank', 'noopener');
+      return;
+    }
+    openPremiumModal(kind, id);
+  }
+
+  function hasPremiumApproved(kind, id){
+    if(!currentUser) return false;
+    return premiumRequests.some(r => r.itemKind === kind && r.itemId === id && r.userPhone === currentUser.phone && r.status === 'approved');
+  }
+
+  function getLatestPremiumRequest(kind, id){
+    if(!currentUser) return null;
+    const mine = premiumRequests.filter(r => r.itemKind === kind && r.itemId === id && r.userPhone === currentUser.phone);
+    return mine.length ? mine[mine.length - 1] : null;
+  }
+
+  function premiumInstructionsHTML(existing){
+    const rejectedNote = existing && existing.status === 'rejected'
+      ? (currentLang==='ur'
+          ? `<p style="color:var(--danger); margin-bottom:8px;">Aap ki pichli request reject ho gayi thi — sahi screenshot ke sath dobara try karain.</p>`
+          : `<p style="color:var(--danger); margin-bottom:8px;">Your previous request was rejected — please try again with the correct screenshot.</p>`)
+      : '';
+    return `
+      ${rejectedNote}
+      <p>${currentLang==='ur'
+        ? 'Ye chez premium hai, iski fee <b>Rs ' + PREMIUM_FEE + '</b> hai.'
+        : 'This item is premium — the fee is <b>Rs ' + PREMIUM_FEE + '</b>.'}</p>
+      <div class="jazzcash-box">
+        <div>JazzCash: <b>${PREMIUM_JAZZCASH_NUMBER}</b></div>
+        <div>${currentLang==='ur' ? 'Naam' : 'Name'}: <b>${PREMIUM_JAZZCASH_NAME}</b></div>
+      </div>
+      <p>${currentLang==='ur'
+        ? 'Rs ' + PREMIUM_FEE + ' is number par bhejne ke baad, neeche apna payment screenshot upload karain.'
+        : 'After sending Rs ' + PREMIUM_FEE + ' to this number, upload your payment screenshot below.'}</p>
+    `;
+  }
+
+  function openPremiumModal(kind, id){
+    const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
+    if(!item || !currentUser) return;
+    premiumModalTarget = { kind, id };
+    premiumScreenshotData = null;
+    const nameEl = document.getElementById('premium-modal-item-name');
+    if(nameEl) nameEl.textContent = kind === 'upload' ? item.fileName : item.name;
+    const shotStatus = document.getElementById('premium-screenshot-status');
+    if(shotStatus) shotStatus.textContent = '';
+    const shotInput = document.getElementById('premium-screenshot-input');
+    if(shotInput) shotInput.value = '';
+    const existing = getLatestPremiumRequest(kind, id);
+    const bodyEl = document.getElementById('premium-modal-body');
+    const formEl = document.getElementById('premium-modal-form');
+    const submitBtn = document.getElementById('premium-submit-btn');
+    if(existing && existing.status === 'pending'){
+      bodyEl.innerHTML = currentLang==='ur'
+        ? `<p>Aap ka payment screenshot Admin ko bhej diya gaya hai — manzoori ka intezar karain. Manzoor hotay hi ye khud khul jayega.</p>`
+        : `<p>Your payment screenshot has been sent to Admin — waiting for approval. It will open automatically once approved.</p>`;
+      if(formEl) formEl.style.display = 'none';
+      if(submitBtn) submitBtn.style.display = 'none';
+    } else {
+      bodyEl.innerHTML = premiumInstructionsHTML(existing);
+      if(formEl) formEl.style.display = '';
+      if(submitBtn) submitBtn.style.display = '';
+    }
+    document.getElementById('premium-modal').classList.add('show');
+  }
+
+  function closePremiumModal(){
+    document.getElementById('premium-modal').classList.remove('show');
+    premiumModalTarget = null;
+  }
+
+  function previewPremiumScreenshot(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    compressImageFile(file, 900, 0.8).then(function(dataUrl){
+      premiumScreenshotData = dataUrl;
+      const el = document.getElementById('premium-screenshot-status');
+      if(el) el.textContent = currentLang==='ur' ? '✓ Screenshot select ho gaya.' : '✓ Screenshot selected.';
     });
   }
 
-  // Admin's own management list — excludes moderator submissions still
-  // awaiting approval (those live in the separate approval section).
-  function renderAdminUploads(){
-    const visible = uploads.filter(u => u.status !== 'awaiting_approval');
-    document.getElementById('uploads-count-label').textContent = visible.length + ' records';
-    const area = document.getElementById('admin-uploads-area');
-    if(visible.length === 0){
-      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi upload nahi hua.' : 'No uploads yet.'}</div>`;
+  function submitPremiumScreenshot(){
+    if(!premiumModalTarget || !currentUser) return;
+    if(!premiumScreenshotData){
+      alert(currentLang==='ur' ? 'Pehle payment ka screenshot upload karain.' : 'Please upload the payment screenshot first.');
       return;
     }
-    area.innerHTML = `<div class="app-tile-grid">` + visible.map((u,i) => `
-      <div class="app-tile" style="animation-delay:${i*0.05}s">
-        <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
-        <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
-        ${u.description ? `<div class="link-desc">${linkifyText(u.description)}</div>` : ''}
-        ${statusBadge(u.status)}
-        ${u.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting" style="margin-top:2px;">🛡 ${escapeHtml(u.submittedByName||'Moderator')}</div>` : ''}
-        <div class="app-tile-actions">
-          ${u.status !== 'published' ? `<button class="btn-outline-green" onclick="setUploadStatus(${u.id}, 'published')">Publish</button>` : ''}
-          ${u.status === 'published' ? `<button class="btn-outline-amber" onclick="setUploadStatus(${u.id}, 'unpublished')">Unpublish</button>` : ''}
-          <button class="btn-outline-amber" onclick="editUpload(${u.id})">Edit</button>
-          <button class="btn-outline-danger" onclick="deleteUpload(${u.id})">Delete</button>
+    const { kind, id } = premiumModalTarget;
+    const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
+    if(!item) return;
+    const req = {
+      id: premiumReqIdCounter++,
+      itemKind: kind,
+      itemId: id,
+      itemName: kind === 'upload' ? item.fileName : item.name,
+      userPhone: currentUser.phone,
+      userName: currentUser.name,
+      screenshot: premiumScreenshotData,
+      status: 'pending',
+      requestedAt: new Date().toLocaleString()
+    };
+    premiumRequests.push(req);
+    saveState();
+    if(window.fbSavePremiumRequest) window.fbSavePremiumRequest(req);
+    pushAdminNotification(
+      '"' + req.userName + '" ne "' + req.itemName + '" ke liye premium payment screenshot bheja hai — approval chahiye.',
+      '"' + req.userName + '" sent a premium payment screenshot for "' + req.itemName + '" — needs approval.'
+    );
+    renderPremiumRequests();
+    closePremiumModal();
+    alert(currentLang==='ur' ? 'Screenshot bhej diya gaya — Admin ki approval ka intezar karain.' : 'Screenshot sent — waiting for Admin approval.');
+  }
+
+  // Admin's queue of pending premium requests, each with the payment
+  // screenshot + Accept/Reject.
+  function renderPremiumRequests(){
+    const area = document.getElementById('premium-requests-area');
+    if(!area) return;
+    const pending = premiumRequests.filter(r => r.status === 'pending');
+    const countEl = document.getElementById('premium-requests-count-label');
+    if(countEl) countEl.textContent = pending.length + ' pending';
+    if(pending.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi koi premium request nahi hai.' : 'No premium requests right now.'}</div>`;
+      return;
+    }
+    area.innerHTML = pending.map(r => `
+      <div class="moderator-request-row" style="align-items:flex-start;">
+        <div class="premium-req-shot" onclick="viewPremiumScreenshot(${r.id})"><img src="${r.screenshot}"></div>
+        <div class="info">
+          <div class="n">${escapeHtml(r.itemName)} <span class="badge-status badge-awaiting">🔒 Premium</span></div>
+          <div class="p">${escapeHtml(r.userName)} · ${escapeHtml(r.userPhone)}</div>
+          <div class="e">${escapeHtml(r.requestedAt)}</div>
+        </div>
+        <div class="actions">
+          <button class="btn-outline-green" onclick="approvePremiumRequest(${r.id})">Accept</button>
+          <button class="btn-outline-danger" onclick="rejectPremiumRequest(${r.id})">Reject</button>
         </div>
       </div>
-    `).join('') + `</div>`;
-    document.getElementById('stat-uploads').textContent = visible.length;
+    `).join('');
+  }
+
+  function viewPremiumScreenshot(id){
+    const r = premiumRequests.find(x => x.id === id);
+    if(!r) return;
+    document.getElementById('modal-title').textContent = (currentLang==='ur' ? 'Payment Screenshot: ' : 'Payment Screenshot: ') + r.itemName;
+    document.getElementById('modal-preview').innerHTML = `<img src="${r.screenshot}">`;
+    document.getElementById('modal-owner').textContent = r.userName + ' · ' + r.userPhone;
+    document.getElementById('modal-status').textContent = 'Status: ' + r.status;
+    const dl = document.getElementById('modal-download');
+    dl.style.display = 'none';
+    document.getElementById('file-modal').classList.add('show');
+  }
+
+  function approvePremiumRequest(id){
+    const r = premiumRequests.find(x => x.id === id);
+    if(!r) return;
+    r.status = 'approved';
+    saveState();
+    if(window.fbSavePremiumRequest) window.fbSavePremiumRequest(r);
+    pushUserNotification(r.userPhone,
+      '"' + r.itemName + '" ki premium request manzoor ho gayi hai — ab aap ise khol saktay hain.',
+      'Your premium request for "' + r.itemName + '" has been approved — you can now open it.'
+    );
+    renderPremiumRequests();
+  }
+
+  function rejectPremiumRequest(id){
+    const r = premiumRequests.find(x => x.id === id);
+    if(!r) return;
+    r.status = 'rejected';
+    saveState();
+    if(window.fbSavePremiumRequest) window.fbSavePremiumRequest(r);
+    pushUserNotification(r.userPhone,
+      '"' + r.itemName + '" ki premium request reject ho gayi hai — sahi screenshot ke sath dobara try karain.',
+      'Your premium request for "' + r.itemName + '" was rejected — please try again with the correct screenshot.'
+    );
+    renderPremiumRequests();
   }
 
   function setUploadStatus(id, status){
@@ -1289,14 +1611,14 @@ function closeModal(){
   function addAdminLink(){
     submitLinkFromInputs({
       nameId: 'link-name-input', urlId: 'link-url-input', descId: 'link-desc-input',
-      picId: 'link-pic-input', picStatusId: 'link-pic-status', uploadedBy: 'admin'
+      picId: 'link-pic-input', picStatusId: 'link-pic-status', premiumId: 'link-premium-input', uploadedBy: 'admin'
     });
   }
 
   function submitModeratorLink(){
     submitLinkFromInputs({
       nameId: 'mod-link-name-input', urlId: 'mod-link-url-input', descId: 'mod-link-desc-input',
-      picId: 'mod-link-pic-input', picStatusId: 'mod-link-pic-status', uploadedBy: 'moderator'
+      picId: 'mod-link-pic-input', picStatusId: 'mod-link-pic-status', premiumId: 'mod-link-premium-input', uploadedBy: 'moderator'
     });
   }
 
@@ -1305,10 +1627,12 @@ function closeModal(){
     const urlEl = document.getElementById(cfg.urlId);
     const descEl = document.getElementById(cfg.descId);
     const picEl = document.getElementById(cfg.picId);
+    const premiumEl = cfg.premiumId ? document.getElementById(cfg.premiumId) : null;
     const name = nameEl ? nameEl.value.trim() : '';
     const url = urlEl ? urlEl.value.trim() : '';
     const description = descEl ? descEl.value.trim() : '';
     const customLogo = picEl ? picEl._customLogo : null;
+    const isPremium = premiumEl ? !!premiumEl.checked : false;
     if(!name || !url){
       alert(currentLang==='ur' ? 'Link ka naam aur URL dono zaroori hain.' : 'Link name and URL are both required.');
       return;
@@ -1322,7 +1646,8 @@ function closeModal(){
       uploadedBy: cfg.uploadedBy,
       submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
       submittedByName: isModerator && currentUser ? currentUser.name : null,
-      status: isModerator ? 'awaiting_approval' : 'approved'
+      status: isModerator ? 'awaiting_approval' : 'approved',
+      premium: isPremium
     };
     links.push(item);
     saveState();
@@ -1341,6 +1666,7 @@ function closeModal(){
     if(nameEl) nameEl.value = '';
     if(urlEl) urlEl.value = '';
     if(descEl) descEl.value = '';
+    if(premiumEl) premiumEl.checked = false;
     clearCustomLogo(cfg.picId, cfg.picStatusId);
     renderAdminLinks();
     renderUserLinks();
@@ -1413,79 +1739,6 @@ function closeModal(){
     renderAdminLinks();
     renderUserLinks();
     renderModOwnSubmissions();
-  }
-
-  // Auto-generate an icon for a link: a custom/AI logo (link.logo) wins
-  // first, then the site's favicon, then the branded letter-tile.
-  function linkIconHTML(link){
-    if(link.logo){
-      return `<div class="link-icon"><img src="${link.logo}" style="width:100%;height:100%;object-fit:cover;">${brandMarkHTML()}</div>`;
-    }
-    let host = '';
-    try{ host = new URL(link.url).hostname; }catch(e){ host = link.url; }
-    const letter = (link.name || '?').trim().charAt(0).toUpperCase() || '?';
-    const color = '#' + Array.from(link.name).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
-    return `
-      <div class="link-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);">
-        <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-        <span class="link-icon-fallback" style="display:none;">${escapeHtml(letter)}</span>
-        ${brandMarkHTML()}
-      </div>`;
-  }
-
-  // Admin's management list — excludes links still awaiting a
-  // moderator's approval (those show in the separate approval section).
-  function renderAdminLinks(){
-    const visible = links.filter(l => l.status !== 'awaiting_approval');
-    const el = document.getElementById('links-count-label');
-    if(el) el.textContent = visible.length + ' links';
-    const area = document.getElementById('admin-links-area');
-    if(visible.length === 0){
-      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link add nahi hua.' : 'No links added yet.'}</div>`;
-      return;
-    }
-    area.innerHTML = `<div class="link-grid">` + visible.map(l => `
-      <div class="link-card">
-        ${linkIconHTML(l)}
-        <div class="link-name">${escapeHtml(l.name)}</div>
-        <div class="link-url">${escapeHtml(l.url)}</div>
-        ${l.description ? `<div class="link-desc">${linkifyText(l.description)}</div>` : ''}
-        ${l.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting">🛡 ${escapeHtml(l.submittedByName||'Moderator')}</div>` : ''}
-        <div class="app-tile-actions">
-          <a class="btn-outline-green" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">Open</a>
-          <button class="btn-outline-amber" onclick="editLink(${l.id})">Edit</button>
-          <button class="btn-outline-danger" onclick="deleteLink(${l.id})">Delete</button>
-        </div>
-      </div>
-    `).join('') + `</div>`;
-  }
-
-  // Writes the approved links list into every screen that shows it
-  // (User's "Admin Links" AND Moderator's mirrored "Admin Links").
-  function renderUserLinks(){
-    const visible = links.filter(l => l.status !== 'awaiting_approval');
-    [
-      { countEl:'user-links-count', areaEl:'user-links-area' },
-      { countEl:'mod-user-links-count', areaEl:'mod-user-links-area' }
-    ].forEach(function(t){
-      const area = document.getElementById(t.areaEl);
-      if(!area) return;
-      const countEl = document.getElementById(t.countEl);
-      if(countEl) countEl.textContent = visible.length + ' links';
-      if(visible.length === 0){
-        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link nahi hai.' : 'No links yet.'}</div>`;
-        return;
-      }
-      area.innerHTML = `<div class="link-grid">` + visible.map(l => `
-        <div class="link-card">
-          <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-main">
-            ${linkIconHTML(l)}
-            <div class="link-name">${escapeHtml(l.name)}</div>
-            ${l.description ? `<div class="link-desc">${linkifyText(l.description)}</div>` : ''}
-          </a>
-        </div>
-      `).join('') + `</div>`;
-    });
   }
 
   // =================================================================
@@ -2132,7 +2385,7 @@ document.addEventListener('keydown', function(e){
         return;
       }
       if(low.includes('uploads') && !low.includes('publish') && !low.includes('delete')){
-        document.getElementById('uploads-section').scrollIntoView({behavior:'smooth'});
+        document.getElementById('content-section').scrollIntoView({behavior:'smooth'});
         speak(currentLang==='ur' ? 'Uploads list dikha raha hoon.' : 'Showing the uploads list.');
         return;
       }

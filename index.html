@@ -157,14 +157,9 @@
       <div class="id-card" id="wu-idcard"></div>
 
       <div class="section" id="community-section">
-        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Updates</h3><span id="community-count">0 files</span></div>
-        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;" data-i18n="adminUpdatesNote">Ye files sirf Admin upload karta hai — aap yahan sirf dekh aur download kar saktay hain.</p>
+        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Content</h3><span id="community-count">0 items</span></div>
+        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;" data-i18n="adminUpdatesNote">Ye files aur links sirf Admin add karta hai — aap yahan dekh, khol aur download kar saktay hain. Jin par 🔒 laga ho wo Premium hain.</p>
         <div id="community-area"></div>
-      </div>
-
-      <div class="section" id="user-links-section">
-        <div class="list-header"><h3 data-i18n="linksTitle">// Admin Links</h3><span id="user-links-count">0 links</span></div>
-        <div id="user-links-area"></div>
       </div>
 
       <div class="section profile-edit-card" id="profile-edit-section">
@@ -233,8 +228,9 @@
         <div id="user-list-area"></div>
       </div>
 
-      <div class="section" id="uploads-section">
-        <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
+      <div class="section" id="content-section">
+        <div class="list-header"><h3 data-i18n="uploadsLog">// Content_Control.log (Admin only)</h3><span id="content-count-label">0 records</span></div>
+        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;">Files aur links dono neeche ek hi list mein show hotay hain — alag "yeh link hai" jaisa label nahi lagta. Kisi bhi item ko "🔒 Premium" mark kar dain to wo lock ho jayega — user ki approval ke baad hi khulega.</p>
         <div class="upload-drop">
           <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
           <div class="link-add-row" style="margin-bottom:10px;">
@@ -247,14 +243,10 @@
           </div>
           <input type="file" id="admin-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'admin-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
+          <label class="premium-check-row"><input type="checkbox" id="admin-upload-premium-input"> 🔒 Ye upload Premium rakhain (100 Rs approval ke baad khulega)</label>
           <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
-        <div id="admin-uploads-area"></div>
-      </div>
-
-      <div class="section" id="links-section">
-        <div class="list-header"><h3 data-i18n="linksLog">// Links_Control.log (Admin only)</h3><span id="links-count-label">0 links</span></div>
         <div class="upload-drop">
           <p data-i18n="adminLinksNote">Yahan koi bhi link (URL) add karain — ek khud-ba-khud icon ban jayega aur users ko aapka link dikhega. Har link par uska naam neeche likha hota hai.</p>
           <div class="link-add-row">
@@ -262,6 +254,7 @@
             <input type="text" id="link-url-input" data-i18n-ph="linkUrlPh" placeholder="https://...">
           </div>
           <textarea id="link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <label class="premium-check-row"><input type="checkbox" id="link-premium-input"> 🔒 Ye link Premium rakhain (100 Rs approval ke baad khulega)</label>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="link-pic-status"></span>
@@ -269,7 +262,13 @@
           </div>
           <input type="file" id="link-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'link-pic-status')">
         </div>
-        <div id="admin-links-area"></div>
+        <div id="admin-content-area"></div>
+      </div>
+
+      <div class="section" id="premium-requests-section">
+        <div class="list-header"><h3>// Premium_Requests.log (Awaiting Approval)</h3><span id="premium-requests-count-label">0 pending</span></div>
+        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;">Jab koi user premium item ke liye 100 Rs JazzCash payment ka screenshot bhejta hai, wo yahan aata hai. Screenshot par tap kar ke bara kar ke dekhain, phir Accept ya Reject karain.</p>
+        <div id="premium-requests-area"></div>
       </div>
 
       <div class="section" id="mod-submissions-section">
@@ -416,13 +415,8 @@
       </div>
 
       <div class="section" id="mod-community-section">
-        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Updates</h3><span id="mod-community-count">0 files</span></div>
+        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Content</h3><span id="mod-community-count">0 items</span></div>
         <div id="mod-community-area"></div>
-      </div>
-
-      <div class="section" id="mod-user-links-section">
-        <div class="list-header"><h3 data-i18n="linksTitle">// Admin Links</h3><span id="mod-user-links-count">0 links</span></div>
-        <div id="mod-user-links-area"></div>
       </div>
 
       <div class="section" id="mod-upload-section">
@@ -439,6 +433,7 @@
           </div>
           <input type="file" id="mod-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
+          <label class="premium-check-row"><input type="checkbox" id="mod-upload-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
           <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-input').click()">+ Upload File</button>
           <input type="file" id="mod-upload-input" style="display:none" onchange="handleModeratorUpload(event)">
         </div>
@@ -450,6 +445,7 @@
             <input type="text" id="mod-link-url-input" placeholder="https://...">
           </div>
           <textarea id="mod-link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <label class="premium-check-row"><input type="checkbox" id="mod-link-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('mod-link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="mod-link-pic-status"></span>
@@ -475,6 +471,25 @@
     <div class="modal-actions">
       <a class="btn-primary" id="modal-download" download data-i18n="btnDownload">Download</a>
       <button class="btn-primary ghost" onclick="closeModal()" data-i18n="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PREMIUM UNLOCK MODAL ============ -->
+<div class="modal-overlay" id="premium-modal">
+  <div class="modal-box">
+    <h4>🔒 Premium — <span id="premium-modal-item-name"></span></h4>
+    <div id="premium-modal-body"></div>
+    <div id="premium-modal-form">
+      <div class="link-add-row" style="margin-top:10px; margin-bottom:6px;">
+        <button type="button" class="photo-btn" onclick="document.getElementById('premium-screenshot-input').click()">🖼 Payment Screenshot Upload Karain</button>
+        <span class="success-msg" id="premium-screenshot-status"></span>
+      </div>
+      <input type="file" id="premium-screenshot-input" accept="image/*" style="display:none" onchange="previewPremiumScreenshot(event)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="premium-submit-btn" onclick="submitPremiumScreenshot()">Submit for Approval</button>
+      <button class="btn-primary ghost" onclick="closePremiumModal()" data-i18n="btnClose">Close</button>
     </div>
   </div>
 </div>
