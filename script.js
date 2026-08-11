@@ -71,6 +71,8 @@ function applyState(data){
     try{
       if(currentRole === 'admin'){
         localStorage.setItem(SESSION_KEY, JSON.stringify({ role: 'admin' }));
+      } else if(currentRole === 'moderator' && currentUser){
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ role: 'moderator', phone: currentUser.phone }));
       } else if(currentRole === 'user' && currentUser){
         localStorage.setItem(SESSION_KEY, JSON.stringify({ role: 'user', phone: currentUser.phone }));
       } else {
@@ -87,7 +89,14 @@ function applyState(data){
       beginLogin('admin', null);
       return true;
     }
-if(saved.role === 'user'){
+if(saved.role === 'moderator'){
+      const found = users.find(u => u.phone === saved.phone);
+      if(found && found.role === 'moderator' && !found.blocked && found.approved !== false){
+        beginLogin('moderator', found);
+        return true;
+      }
+    }
+    if(saved.role === 'user'){
       const found = users.find(u => u.phone === saved.phone);
       if(found && !found.blocked && found.approved !== false){
         beginLogin('user', found);
@@ -387,7 +396,7 @@ function switchUserTab(which){
     if(password.length < 4){ err.textContent = currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'; return; }
     if(users.some(u => u.phone === phone)){ err.textContent = currentLang==='ur' ? 'Ye phone number pehle se registered hai. Login karain.' : 'This phone number is already registered. Please login.'; return; }
 
-const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved:false };
+const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved:false, role:'user' };
     users.push(newUser);
     chatThreads[phone] = chatThreads[phone] || { name, messages: [] };
     saveState();
@@ -419,6 +428,7 @@ function userLogin(){
     if(found.password !== password){ err.textContent = currentLang==='ur' ? 'Password ghalat hai.' : 'Incorrect password.'; return; }
     if(found.blocked){ err.textContent = (currentLang==='ur' ? 'Ye account block kar diya gaya hai. Admin se rabta karain: ' : 'This account has been blocked. Contact Admin: ') + '+923074499097'; return; }
     if(found.approved === false){ err.textContent = t('pendingApproval'); return; }
+    if(found.role === 'moderator'){ beginLogin('moderator', found); return; }
     beginLogin('user', found);
   }
 
@@ -476,6 +486,7 @@ function userLogin(){
 
     setTimeout(() => {
       if(role === 'admin') renderAdminWelcome();
+      else if(role === 'moderator') renderModeratorWelcome(user);
       else renderUserWelcome(user);
     }, 1050);
   }
@@ -554,6 +565,67 @@ function logout(){
   }
 
   // =================================================================
+  // MODERATOR — a normal registered user that Admin has promoted.
+  // A moderator logs in through the exact same "User → Login" form as
+  // everyone else; the site detects u.role === 'moderator' and routes
+  // them here instead of the normal user screen. This panel shows
+  // ONLY pending registration requests with Accept/Reject — nothing
+  // else (no passwords, no uploads, no chat, no settings). As soon as
+  // a request is approved/rejected it disappears immediately, both
+  // here and from the Admin's own list.
+  // =================================================================
+  function renderModeratorWelcome(u){
+    const nameEl = document.getElementById('mod-name-label');
+    if(nameEl) nameEl.textContent = u.name;
+    renderModeratorRequests();
+    showScreen('screen-welcome-moderator');
+  }
+
+  function renderModeratorRequests(){
+    const area = document.getElementById('moderator-requests-area');
+    if(!area) return;
+    const pending = users.filter(u => u.approved === false);
+    const countEl = document.getElementById('moderator-count-label');
+    if(countEl) countEl.textContent = pending.length + (currentLang==='ur' ? ' requests' : ' requests');
+    if(pending.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi koi nayi registration request nahi hai.' : 'No new registration requests right now.'}</div>`;
+      return;
+    }
+    area.innerHTML = pending.map(u => `
+      <div class="moderator-request-row">
+        <div class="ph">${u.photo ? `<img src="${u.photo}">` : initials(u.name)}</div>
+        <div class="info">
+          <div class="n">${escapeHtml(u.name)}</div>
+          <div class="p">${escapeHtml(u.phone)}</div>
+          <div class="e">ERP ${u.erp}</div>
+        </div>
+        <div class="actions">
+          <button class="btn-outline-green" onclick="approveUser('${u.phone}')">✓ ${currentLang==='ur' ? 'Accept' : 'Accept'}</button>
+          <button class="btn-outline-danger" onclick="rejectUser('${u.phone}')">✕ ${currentLang==='ur' ? 'Reject' : 'Reject'}</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Admin promotes/demotes a registered (approved) user to Moderator.
+  // Only Admin can do this — the button only exists inside the Admin
+  // users list, never on the moderator's own screen.
+  function toggleModerator(phone){
+    const u = users.find(x => x.phone === phone);
+    if(!u) return;
+    const makingModerator = u.role !== 'moderator';
+    if(makingModerator){
+      if(!confirm(currentLang==='ur'
+        ? ('"' + u.name + '" ko Moderator banayein? Ye ab apne login se sirf registration requests accept/reject kar sakega.')
+        : ('Make "' + u.name + '" a Moderator? They will be able to log in and only accept/reject registration requests.'))) return;
+    }
+    u.role = makingModerator ? 'moderator' : 'user';
+    saveState();
+    if(window.fbSaveUser) window.fbSaveUser(u);
+    renderUsersList();
+  }
+
+  // =================================================================
   // ADMIN: USERS LIST + BLOCK/UNBLOCK
   // =================================================================
   function renderUsersList(){
@@ -567,9 +639,13 @@ area.innerHTML = `<div class="user-grid">` + users.map(u => {
       const statusBadge = isPending
         ? `<div class="badge-pending">● ${t('pendingBadge')}</div>`
         : (u.blocked ? `<div class="badge-blocked">● ${currentLang==='ur'?'Blocked':'Blocked'}</div>` : `<div class="badge-approved">● ${t('approvedStatus')}</div>`);
+      const moderatorBadge = u.role === 'moderator' ? `<div class="badge-approved" style="color:var(--amber);">🛡 Moderator</div>` : '';
       const approveBtns = isPending
         ? `<button class="btn-outline-green" onclick="approveUser('${u.phone}')">✓ ${t('btnApprove')}</button>
            <button class="btn-outline-danger" onclick="rejectUser('${u.phone}')">✕ ${t('btnReject')}</button>`
+        : '';
+      const moderatorBtn = !isPending
+        ? `<button class="btn-outline-amber" onclick="toggleModerator('${u.phone}')">${u.role==='moderator' ? (currentLang==='ur'?'🛡 Moderator Hatayen':'🛡 Remove Moderator') : (currentLang==='ur'?'🛡 Moderator Banayen':'🛡 Make Moderator')}</button>`
         : '';
       return `
       <div class="user-row ${u.blocked ? 'blocked' : ''} ${isPending ? 'pending' : ''}">
@@ -580,12 +656,14 @@ area.innerHTML = `<div class="user-grid">` + users.map(u => {
           <div class="p">${escapeHtml(u.phone)}</div>
           <div class="e">ERP ${u.erp}</div>
           ${statusBadge}
+          ${moderatorBadge}
         </div>
         <div class="actions">
           ${approveBtns}
           ${u.blocked && !isPending
             ? `<button class="btn-outline-green" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Unblock':'Unblock'}</button>`
             : (!isPending ? `<button class="btn-outline-danger" onclick="toggleBlock('${u.phone}')">${currentLang==='ur'?'Block':'Block'}</button>` : '')}
+          ${moderatorBtn}
           <button class="btn-outline-green" onclick="openThreadFor('${u.phone}')">💬 Chat</button>
           <button class="btn-outline-amber" onclick="adminResetUserPassword('${u.phone}')">🔑 Password</button>
           <button class="btn-outline-green" onclick="viewUserPassword('${u.phone}')">👁 View Password</button>
@@ -648,7 +726,9 @@ function toggleBlock(phone){
       'Aapki registration request Admin ne approve kar di hai — ab aap login kar saktay hain!',
       'Your registration request has been approved by the Admin — you can now log in!');
     renderUsersList();
-    document.getElementById('stat-total').textContent = users.length;
+    renderModeratorRequests();
+    const statEl = document.getElementById('stat-total');
+    if(statEl) statEl.textContent = users.length;
   }
 
   // Admin rejects (deletes) a pending registration request — also missing.
@@ -664,9 +744,12 @@ function toggleBlock(phone){
     saveState();
     if(window.fbDeleteUser) window.fbDeleteUser(phone);
     renderUsersList();
+    renderModeratorRequests();
     renderThreadList();
-    document.getElementById('stat-total').textContent = users.length;
-    document.getElementById('list-count').textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
+    const statEl = document.getElementById('stat-total');
+    if(statEl) statEl.textContent = users.length;
+    const listCountEl = document.getElementById('list-count');
+    if(listCountEl) listCountEl.textContent = users.length + ' ' + (currentLang==='ur' ? 'records' : 'records');
   }
 
   // =================================================================
@@ -847,10 +930,11 @@ function toggleBlock(phone){
   // clear upfront size check instead of a silent failure later.
   const MAX_NON_IMAGE_UPLOAD_BYTES = 700 * 1024;
 
-  function finishAdminUpload(fileName, fileType, dataUrl){
+  function finishAdminUpload(displayName, fileType, dataUrl, downloadName){
     const item = {
       id: uploadIdCounter++,
-      fileName: fileName,
+      fileName: displayName,
+      downloadName: downloadName || displayName,
       fileType: fileType,
       dataUrl: dataUrl,
       status: 'pending',
@@ -863,14 +947,31 @@ function toggleBlock(phone){
     renderCommunityUploads();
   }
 
+  // Admin must type a name/meaning for the upload FIRST (in
+  // #admin-upload-name-input) — that name is what shows under the
+  // app-icon tile everywhere on the site. The original file name is
+  // kept only for the download link, so the file still opens correctly.
   function handleAdminUpload(e){
+    const nameInput = document.getElementById('admin-upload-name-input');
+    const displayName = nameInput ? nameInput.value.trim() : '';
     const file = e.target.files[0];
     if(!file) return;
     e.target.value = '';
 
+    if(!displayName){
+      alert(currentLang==='ur'
+        ? 'Pehle upload ka naam / matlab likhain (upar wale box mein), phir file select karain.'
+        : 'Please type a name for this upload (in the box above) before choosing the file.');
+      return;
+    }
+
+    const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || [''])[0];
+    const downloadName = displayName.replace(/\.[a-zA-Z0-9]+$/, '') + ext;
+
     if(file.type && file.type.startsWith('image/')){
       compressImageFile(file, 1400, 0.75).then(function(dataUrl){
-        finishAdminUpload(file.name, file.type, dataUrl);
+        finishAdminUpload(displayName, file.type, dataUrl, downloadName);
+        if(nameInput) nameInput.value = '';
       });
       return;
     }
@@ -884,7 +985,8 @@ function toggleBlock(phone){
 
     const reader = new FileReader();
     reader.onload = function(ev){
-      finishAdminUpload(file.name, file.type, ev.target.result);
+      finishAdminUpload(displayName, file.type, ev.target.result, downloadName);
+      if(nameInput) nameInput.value = '';
     };
     reader.readAsDataURL(file);
   }
@@ -902,6 +1004,19 @@ function toggleBlock(phone){
     return escapeHtml(u.fileName);
   }
 
+  // Renders every upload as an "app icon" tile (rounded icon + name
+  // underneath, like a phone home-screen), the same visual language as
+  // the link tiles below.
+  function uploadIconHTML(u){
+    if(u.fileType && u.fileType.startsWith('image/')){
+      return `<div class="app-icon"><img src="${u.dataUrl}"></div>`;
+    }
+    const letter = (u.fileName || '?').trim().charAt(0).toUpperCase() || '?';
+    const seed = String(u.fileName || '');
+    const color = '#' + Array.from(seed).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
+    return `<div class="app-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);"><span class="app-icon-fallback">${escapeHtml(letter)}</span></div>`;
+  }
+
   function renderCommunityUploads(){
     const pub = uploads.filter(u => u.status === 'published');
     document.getElementById('community-count').textContent = pub.length + ' files';
@@ -910,11 +1025,10 @@ function toggleBlock(phone){
       area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak Admin ne koi file publish nahi ki.' : 'Admin has not published any files yet.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="upload-grid">` + pub.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.08}s">
-        <div class="upload-thumb" onclick="openFilePreview(${u.id})" style="cursor:pointer;">${uploadThumb(u)}</div>
-        <div class="upload-name">${escapeHtml(u.fileName)}</div>
-        <div class="upload-owner">${currentLang==='ur' ? 'Admin ki taraf se' : 'From Admin'}</div>
+    area.innerHTML = `<div class="app-tile-grid">` + pub.map((u,i) => `
+      <div class="app-tile" style="animation-delay:${i*0.08}s">
+        <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
+        <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
       </div>
     `).join('') + `</div>`;
   }
@@ -926,12 +1040,12 @@ function toggleBlock(phone){
       area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi upload nahi hua.' : 'No uploads yet.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="upload-grid">` + uploads.map((u,i) => `
-      <div class="upload-card" style="animation-delay:${i*0.05}s">
-        <div class="upload-thumb" onclick="openFilePreview(${u.id})" style="cursor:pointer;">${uploadThumb(u)}</div>
-        <div class="upload-name">${escapeHtml(u.fileName)}</div>
+    area.innerHTML = `<div class="app-tile-grid">` + uploads.map((u,i) => `
+      <div class="app-tile" style="animation-delay:${i*0.05}s">
+        <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
+        <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
         ${statusBadge(u.status)}
-        <div class="upload-actions">
+        <div class="app-tile-actions">
           ${u.status !== 'published' ? `<button class="btn-outline-green" onclick="setUploadStatus(${u.id}, 'published')">Publish</button>` : ''}
           ${u.status === 'published' ? `<button class="btn-outline-amber" onclick="setUploadStatus(${u.id}, 'unpublished')">Unpublish</button>` : ''}
           <button class="btn-outline-danger" onclick="deleteUpload(${u.id})">Delete</button>
@@ -977,7 +1091,7 @@ function toggleBlock(phone){
     const dl = document.getElementById('modal-download');
     dl.style.display = '';
     dl.href = u.dataUrl;
-    dl.download = u.fileName;
+    dl.download = u.downloadName || u.fileName;
     document.getElementById('file-modal').classList.add('show');
   }
 
@@ -997,7 +1111,7 @@ function closeModal(){
     }
     let cleaned = url;
     if(!/^https?:\/\//i.test(cleaned)) cleaned = 'https://' + cleaned;
-    const item = { id: linkIdCounter++, name, url: cleaned, addedAt: new Date().toLocaleString() };
+    const item = { id: linkIdCounter++, name, url: cleaned, addedAt: new Date().toLocaleString(), description: '' };
     links.push(item);
     saveState();
     if(window.fbSaveLink) window.fbSaveLink(item);
@@ -1009,6 +1123,35 @@ function closeModal(){
     document.getElementById('link-url-input').value = '';
     renderAdminLinks();
     renderUserLinks();
+    generateLinkAIDescription(item);
+  }
+
+  // Auto-writes a one-line "meaning" for a link using the admin's saved
+  // Gemini key (same key used by the Gemini AI panel). If no key is set
+  // yet, this quietly does nothing — the link still works fine without
+  // a description, the admin just won't get the AI blurb.
+  function generateLinkAIDescription(item){
+    const key = localStorage.getItem('atw_gemini_key') || '';
+    if(!key) return;
+    const prompt = 'In under 12 words, in Roman Urdu, say what this website/link is for. Name: "' + item.name + '". URL: ' + item.url + '. Reply with ONLY the short description, nothing else.';
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    })
+    .then(r => r.json())
+    .then(data => {
+      const reply = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text;
+      if(!reply) return;
+      const target = links.find(l => l.id === item.id);
+      if(!target) return;
+      target.description = reply.trim().replace(/^["']|["']$/g, '');
+      saveState();
+      if(window.fbSaveLink) window.fbSaveLink(target);
+      renderAdminLinks();
+      renderUserLinks();
+    })
+    .catch(() => { /* AI description is optional — fail silently */ });
   }
 
   function deleteLink(id){
@@ -1046,7 +1189,8 @@ function closeModal(){
         ${linkIconHTML(l)}
         <div class="link-name">${escapeHtml(l.name)}</div>
         <div class="link-url">${escapeHtml(l.url)}</div>
-        <div class="upload-actions">
+        ${l.description ? `<div class="link-desc">${escapeHtml(l.description)}</div>` : ''}
+        <div class="app-tile-actions">
           <a class="btn-outline-green" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">Open</a>
           <button class="btn-outline-danger" onclick="deleteLink(${l.id})">Delete</button>
         </div>
@@ -1067,6 +1211,7 @@ function closeModal(){
         <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-main">
           ${linkIconHTML(l)}
           <div class="link-name">${escapeHtml(l.name)}</div>
+          ${l.description ? `<div class="link-desc">${escapeHtml(l.description)}</div>` : ''}
         </a>
       </div>
     `).join('') + `</div>`;

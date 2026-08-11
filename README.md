@@ -75,6 +75,35 @@ deployment go to Firestore → Rules and Realtime Database → Rules and lock
 them down (e.g. so only your own site can write) before sharing the link
 publicly.
 
+## Uploads &amp; Links now show as "app icons"
+- When Admin uploads a file, a **name box appears first** — type what the
+  file/app is (e.g. "WhatsApp", "PDF Notes"), then click "+ Upload File".
+  That name is what shows under the icon everywhere on the site (users
+  and admin both see the same rounded app-icon tile + name, like a
+  phone home-screen).
+- Links already worked the same way — add a name + URL and an icon is
+  auto-generated (site favicon, or a colored letter tile if no favicon
+  is found).
+- If a Gemini API key is saved (Settings → Gemini AI Assistant), every
+  new link also gets a short AI-written one-line description under its
+  name automatically. Without a key, links still work fine — they just
+  won't have the AI description.
+
+## Moderator role
+- Admin can promote any already-registered (approved) user to
+  **Moderator** from the Users list — "🛡 Make Moderator" button.
+- A Moderator logs in through the exact same **User → Login** box as
+  everyone else, using the account's own phone + password. The site
+  detects the Moderator role and sends them to a separate, minimal
+  panel automatically.
+- The Moderator panel shows **only** pending registration requests,
+  with Accept / Reject buttons — nothing else (no user list, no
+  uploads, no links, no chat, no settings, no passwords). As soon as a
+  Moderator accepts or rejects a request, it disappears immediately —
+  both from their own list and from Admin's list.
+- Admin's own dashboard is unchanged and still sees everything (total
+  users, uploads, chat, settings, etc.) exactly as before.
+
 ## Gemini AI panel
 The admin's "Gemini AI Assistant" panel calls Google's Gemini API directly
 from the browser using an API key the admin enters (get one free at

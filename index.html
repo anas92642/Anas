@@ -237,6 +237,9 @@
         <div class="list-header"><h3 data-i18n="uploadsLog">// Uploads_Control.log (Admin only)</h3><span id="uploads-count-label">0 records</span></div>
         <div class="upload-drop">
           <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <input type="text" id="admin-upload-name-input" placeholder="Is upload ka naam / matlab likhain (e.g. WhatsApp, PDF Notes)">
+          </div>
           <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
@@ -362,6 +365,36 @@
       </div>
 
       <div class="contact-line"><span data-i18n="adminContact">Admin Contact:</span> <a href="tel:+923074499097">+92 307 4499087</a> &nbsp;•&nbsp; <a class="wa-link" href="https://wa.me/923074499097" target="_blank">WhatsApp</a></div>
+    </div>
+  </div>
+
+  <!-- ============ WELCOME (MODERATOR) ============ -->
+  <!-- Moderator sees ONLY pending registration requests, with Accept /
+       Reject. No password fields, no uploads, no chat, no settings —
+       nothing else is shown here on purpose. -->
+  <div class="screen" id="screen-welcome-moderator">
+    <div class="welcome-wrap">
+      <div class="topbar">
+        <div class="who">
+          <div class="avatar"><img src="assets/hero-arms-crossed.png" alt="Moderator"></div>
+          <div>
+            <div class="name" id="mod-name-label">Moderator</div>
+            <div class="role">Moderator</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="logout-btn" onclick="logout()" data-i18n="btnLogout">Logout</button>
+        </div>
+      </div>
+      <div class="welcome-hero" style="margin-bottom:22px;">
+        <div class="eyebrow">// Moderator Panel</div>
+        <h1>Pending Registration Requests</h1>
+        <p>Neechay diye gaye users ko Accept ya Reject karain. Jaise hi aap koi action lain, wo request yahan se turant hat jayegi.</p>
+      </div>
+      <div class="section" id="moderator-requests-section">
+        <div class="list-header"><h3>// Requests.log</h3><span id="moderator-count-label">0 requests</span></div>
+        <div id="moderator-requests-area"></div>
+      </div>
     </div>
   </div>
 
