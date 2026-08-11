@@ -562,8 +562,17 @@ background:linear-gradient(90deg, transparent, rgba(61,243,255,0.9), transparent
   }
   .link-url{ font-size:9.5px; font-family:var(--font-m); color:var(--dim); max-width:100px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .link-desc{ font-size:10px; font-family:var(--font-m); color:var(--dim-2); max-width:110px; line-height:1.3; }
+  .link-desc a{ color:var(--cyan); text-decoration:underline; }
   .link-main{ display:flex; flex-direction:column; align-items:center; gap:6px; text-decoration:none; color:inherit; }
   .app-tile-actions{ display:flex; gap:4px; flex-wrap:wrap; justify-content:center; margin-top:2px; }
+
+  /* small "Anas Technical World" watermark chip on auto-generated icons */
+  .brand-mark{
+    position:absolute; bottom:-2px; right:-2px; background:var(--cyan); color:#04141a;
+    font-family:var(--font-h); font-size:6.5px; font-weight:700; padding:1.5px 3px; border-radius:4px;
+    line-height:1.3; box-shadow:0 1px 4px rgba(0,0,0,0.4); letter-spacing:0.2px; z-index:2;
+  }
+  .badge-awaiting{ background:rgba(61,243,255,0.12); color:var(--cyan); border:1px solid rgba(61,243,255,0.4); }
 
   /* moderator panel */
   .moderator-request-row{

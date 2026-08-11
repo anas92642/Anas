@@ -94,15 +94,41 @@ publicly.
   **Moderator** from the Users list — "🛡 Make Moderator" button.
 - A Moderator logs in through the exact same **User → Login** box as
   everyone else, using the account's own phone + password. The site
-  detects the Moderator role and sends them to a separate, minimal
-  panel automatically.
-- The Moderator panel shows **only** pending registration requests,
-  with Accept / Reject buttons — nothing else (no user list, no
-  uploads, no links, no chat, no settings, no passwords). As soon as a
-  Moderator accepts or rejects a request, it disappears immediately —
-  both from their own list and from Admin's list.
+  detects the Moderator role and sends them to a separate panel
+  automatically.
+- The Moderator panel shows: pending registration requests (Accept /
+  Reject — disappears immediately from both their list and Admin's),
+  the same **Admin Updates** (published files) and **Admin Links**
+  that regular users see, and their own **My Uploads** area where a
+  Moderator can upload a file or add a link.
+- **Anything a Moderator uploads or adds always goes to Admin for
+  approval first** — it is not visible to users until Admin approves
+  it. Admin sees these under **// Moderator_Submissions.log** on the
+  Admin dashboard, with Approve / Reject buttons. Approving an upload
+  moves it into the normal admin uploads list (Admin still clicks
+  Publish); approving a link makes it go live immediately. Rejecting
+  either deletes it and notifies the Moderator. A Moderator can see the
+  live status of everything they've submitted at the bottom of their
+  own panel.
 - Admin's own dashboard is unchanged and still sees everything (total
   users, uploads, chat, settings, etc.) exactly as before.
+
+## Uploads &amp; links: description, auto-links, and custom/AI icons
+- Both the Admin's and Moderator's upload/link forms now have an
+  optional **description** box. Any URL typed inside it (with or
+  without "https://") is automatically turned into a clickable link
+  wherever that description is shown — no manual link-tag needed.
+- Both forms also have an optional **"🖼 Icon Picture"** button — attach
+  your own picture and it's used as that item's icon everywhere.
+- If no picture is attached, and a Gemini API key is saved (Settings →
+  Gemini AI Assistant), the site automatically asks Gemini to generate
+  a simple icon/logo for that upload/link based on its name, with a
+  small "Anas Technical World" watermark baked in. Without a key (or if
+  the request fails), the existing colored letter-tile icon is used
+  instead — it now always carries a small "ATW" badge in the corner so
+  every auto-generated icon stays branded either way.
+- Admin can now **Edit** any upload or link (name, description, and —
+  for links — the URL) from the "Edit" button on its tile/card.
 
 ## Gemini AI panel
 The admin's "Gemini AI Assistant" panel calls Google's Gemini API directly

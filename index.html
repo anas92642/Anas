@@ -240,6 +240,13 @@
           <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="admin-upload-name-input" placeholder="Is upload ka naam / matlab likhain (e.g. WhatsApp, PDF Notes)">
           </div>
+          <textarea id="admin-upload-desc-input" rows="2" style="margin-bottom:10px;" placeholder="Description (optional) — ismein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-pic-input').click()">🖼 Icon Picture (optional)</button>
+            <span class="success-msg" id="admin-upload-pic-status"></span>
+          </div>
+          <input type="file" id="admin-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'admin-upload-pic-status')">
+          <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
           <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
@@ -253,10 +260,22 @@
           <div class="link-add-row">
             <input type="text" id="link-name-input" data-i18n-ph="linkNamePh" placeholder="Link ka naam (e.g. YouTube, Website)">
             <input type="text" id="link-url-input" data-i18n-ph="linkUrlPh" placeholder="https://...">
+          </div>
+          <textarea id="link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <button type="button" class="photo-btn" onclick="document.getElementById('link-pic-input').click()">🖼 Icon Picture (optional)</button>
+            <span class="success-msg" id="link-pic-status"></span>
             <button type="button" class="photo-btn" onclick="addAdminLink()" data-i18n="btnAddLink">+ Add Link</button>
           </div>
+          <input type="file" id="link-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'link-pic-status')">
         </div>
         <div id="admin-links-area"></div>
+      </div>
+
+      <div class="section" id="mod-submissions-section">
+        <div class="list-header"><h3>// Moderator_Submissions.log (Awaiting Approval)</h3><span id="mod-submissions-count-label">0 pending</span></div>
+        <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;">Moderators jo bhi file ya link upload karte hain, wo pehle yahan Admin ki approval ke liye aati hai.</p>
+        <div id="mod-submissions-area"></div>
       </div>
 
       <div class="section" id="chat-section">
@@ -394,6 +413,52 @@
       <div class="section" id="moderator-requests-section">
         <div class="list-header"><h3>// Requests.log</h3><span id="moderator-count-label">0 requests</span></div>
         <div id="moderator-requests-area"></div>
+      </div>
+
+      <div class="section" id="mod-community-section">
+        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Updates</h3><span id="mod-community-count">0 files</span></div>
+        <div id="mod-community-area"></div>
+      </div>
+
+      <div class="section" id="mod-user-links-section">
+        <div class="list-header"><h3 data-i18n="linksTitle">// Admin Links</h3><span id="mod-user-links-count">0 links</span></div>
+        <div id="mod-user-links-area"></div>
+      </div>
+
+      <div class="section" id="mod-upload-section">
+        <div class="list-header"><h3>// My Uploads (needs Admin approval)</h3><span id="mod-uploads-count-label">0 records</span></div>
+        <div class="upload-drop">
+          <p>Jo bhi file yahan upload karain, wo pehle Admin ki approval ke liye jayegi — approve hone ke baad hi publish ho sakegi.</p>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <input type="text" id="mod-upload-name-input" placeholder="Is upload ka naam / matlab likhain (e.g. WhatsApp, PDF Notes)">
+          </div>
+          <textarea id="mod-upload-desc-input" rows="2" style="margin-bottom:10px;" placeholder="Description (optional) — ismein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-pic-input').click()">🖼 Icon Picture (optional)</button>
+            <span class="success-msg" id="mod-upload-pic-status"></span>
+          </div>
+          <input type="file" id="mod-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-upload-pic-status')">
+          <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
+          <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-input').click()">+ Upload File</button>
+          <input type="file" id="mod-upload-input" style="display:none" onchange="handleModeratorUpload(event)">
+        </div>
+
+        <div class="upload-drop" style="margin-top:14px;">
+          <p>Yahan koi bhi link (URL) add karain — wo bhi pehle Admin approval ke liye jayega.</p>
+          <div class="link-add-row">
+            <input type="text" id="mod-link-name-input" placeholder="Link ka naam (e.g. YouTube, Website)">
+            <input type="text" id="mod-link-url-input" placeholder="https://...">
+          </div>
+          <textarea id="mod-link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+          <div class="link-add-row" style="margin-bottom:10px;">
+            <button type="button" class="photo-btn" onclick="document.getElementById('mod-link-pic-input').click()">🖼 Icon Picture (optional)</button>
+            <span class="success-msg" id="mod-link-pic-status"></span>
+            <button type="button" class="photo-btn" onclick="submitModeratorLink()">+ Add Link</button>
+          </div>
+          <input type="file" id="mod-link-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-link-pic-status')">
+        </div>
+
+        <div id="mod-own-submissions-area" style="margin-top:14px;"></div>
       </div>
     </div>
   </div>

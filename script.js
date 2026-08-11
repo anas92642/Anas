@@ -541,6 +541,7 @@ document.getElementById('stat-unread').textContent = countUnread();
     renderUsersList();
     renderAdminUploads();
     renderAdminLinks();
+    renderModSubmissionsForAdmin();
     renderThreadList();
     renderNotifBell();
     const notifToggle = document.getElementById('browser-notif-toggle');
@@ -578,6 +579,9 @@ function logout(){
     const nameEl = document.getElementById('mod-name-label');
     if(nameEl) nameEl.textContent = u.name;
     renderModeratorRequests();
+    renderCommunityUploads();   // mirrors user's "Admin Updates"
+    renderUserLinks();          // mirrors user's "Admin Links"
+    renderModOwnSubmissions();  // moderator's own submitted uploads/links
     showScreen('screen-welcome-moderator');
   }
 
@@ -930,21 +934,115 @@ function toggleBlock(phone){
   // clear upfront size check instead of a silent failure later.
   const MAX_NON_IMAGE_UPLOAD_BYTES = 700 * 1024;
 
-  function finishAdminUpload(displayName, fileType, dataUrl, downloadName){
+  // Shared brand watermark shown on every auto-generated icon (AI logo
+  // or the plain letter-tile fallback) so "Anas Technical World" stays
+  // visible on the icon itself, regardless of what name was given.
+  function brandMarkHTML(){
+    return `<span class="brand-mark">ATW</span>`;
+  }
+
+  // Turns any plain URL typed inside a name/description field into a
+  // real clickable link. Escapes everything first (so no HTML/script
+  // injection), then re-linkifies the URL-looking parts only.
+  function linkifyText(str){
+    const escaped = escapeHtml(str || '');
+    return escaped.replace(/((https?:\/\/|www\.)[^\s<]+)/gi, function(match){
+      let href = match;
+      if(!/^https?:\/\//i.test(href)) href = 'https://' + href;
+      return `<a href="${href}" target="_blank" rel="noopener">${match}</a>`;
+    });
+  }
+
+  // Optional custom icon picture attached to an upload/link before it's
+  // submitted. Stashed directly on the <input type=file> element (same
+  // pattern as previewProfilePhoto) so the submit function can read it.
+  function previewCustomLogo(e, statusElId){
+    const file = e.target.files[0];
+    if(!file) return;
+    compressImageFile(file, 300, 0.85).then(function(dataUrl){
+      e.target._customLogo = dataUrl;
+      const statusEl = statusElId ? document.getElementById(statusElId) : null;
+      if(statusEl) statusEl.textContent = currentLang==='ur' ? '✓ Picture select ho gayi.' : '✓ Picture selected.';
+    });
+  }
+
+  function clearCustomLogo(inputId, statusElId){
+    const input = document.getElementById(inputId);
+    if(input){ input.value = ''; input._customLogo = null; }
+    const statusEl = statusElId ? document.getElementById(statusElId) : null;
+    if(statusEl) statusEl.textContent = '';
+  }
+
+  // If nobody attached a picture, ask Gemini (using the admin's saved
+  // key — the same one used for the AI link description) to generate a
+  // simple branded icon from the item's name. Optional and best-effort:
+  // with no key saved, or if the request fails, the auto letter-tile
+  // icon (which already carries the "ATW" watermark) is left as-is.
+  function generateAILogoForItem(item, kind){
+    const key = localStorage.getItem('atw_gemini_key') || '';
+    if(!key) return;
+    const prompt = 'Design a simple, modern, flat, square app-icon logo for something named "' + item.name +
+      '". Bold single accent colour, minimal shapes, no photorealism, no readable text except a tiny "Anas Technical World" watermark tucked in a corner.';
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + encodeURIComponent(key), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    })
+    .then(r => r.json())
+    .then(data => {
+      const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+      const imgPart = parts && parts.find(p => p.inlineData && p.inlineData.data);
+      if(!imgPart) return;
+      const dataUrl = 'data:' + (imgPart.inlineData.mimeType || 'image/png') + ';base64,' + imgPart.inlineData.data;
+      const list = kind === 'upload' ? uploads : links;
+      const target = list.find(x => x.id === item.id);
+      if(!target) return;
+      target.logo = dataUrl;
+      saveState();
+      if(kind === 'upload' && window.fbSaveUpload) window.fbSaveUpload(target);
+      if(kind === 'link' && window.fbSaveLink) window.fbSaveLink(target);
+      renderAdminUploads(); renderCommunityUploads();
+      renderAdminLinks(); renderUserLinks();
+      renderModSubmissionsForAdmin();
+      renderModOwnSubmissions();
+    })
+    .catch(() => { /* AI logo is optional — the ATW-branded letter-tile stays as the icon */ });
+  }
+
+  function finishAdminUpload(displayName, fileType, dataUrl, downloadName, extra){
+    extra = extra || {};
     const item = {
       id: uploadIdCounter++,
       fileName: displayName,
       downloadName: downloadName || displayName,
       fileType: fileType,
       dataUrl: dataUrl,
-      status: 'pending',
+      description: extra.description || '',
+      logo: extra.logo || null,
+      uploadedBy: extra.uploadedBy || 'admin',
+      submittedByPhone: extra.submittedByPhone || null,
+      submittedByName: extra.submittedByName || null,
+      status: extra.status || 'pending',
       uploadedAt: new Date().toLocaleString()
     };
     uploads.push(item);
     saveState();
     if(window.fbSaveUpload) window.fbSaveUpload(item);
+    // If it isn't already an image file and nobody attached a custom
+    // picture, try to auto-generate a branded logo for it.
+    if(!item.logo && !(fileType && fileType.startsWith('image/'))){
+      generateAILogoForItem(item, 'upload');
+    }
     renderAdminUploads();
     renderCommunityUploads();
+    if(item.uploadedBy === 'moderator'){
+      pushAdminNotification(
+        'Moderator "' + (item.submittedByName||'') + '" ne ek nayi file bheji hai approval ke liye: "' + item.fileName + '"',
+        'Moderator "' + (item.submittedByName||'') + '" submitted a new file for approval: "' + item.fileName + '"'
+      );
+    }
+    renderModSubmissionsForAdmin();
+    renderModOwnSubmissions();
   }
 
   // Admin must type a name/meaning for the upload FIRST (in
@@ -952,8 +1050,35 @@ function toggleBlock(phone){
   // app-icon tile everywhere on the site. The original file name is
   // kept only for the download link, so the file still opens correctly.
   function handleAdminUpload(e){
-    const nameInput = document.getElementById('admin-upload-name-input');
+    submitUploadFromInputs(e, {
+      nameId: 'admin-upload-name-input',
+      descId: 'admin-upload-desc-input',
+      picId: 'admin-upload-pic-input',
+      picStatusId: 'admin-upload-pic-status',
+      uploadedBy: 'admin'
+    });
+  }
+
+  // Moderator's own upload — identical flow, but always lands in
+  // "awaiting_approval" so it only appears on the site once Admin
+  // reviews and approves it.
+  function handleModeratorUpload(e){
+    submitUploadFromInputs(e, {
+      nameId: 'mod-upload-name-input',
+      descId: 'mod-upload-desc-input',
+      picId: 'mod-upload-pic-input',
+      picStatusId: 'mod-upload-pic-status',
+      uploadedBy: 'moderator'
+    });
+  }
+
+  function submitUploadFromInputs(e, cfg){
+    const nameInput = document.getElementById(cfg.nameId);
+    const descInput = document.getElementById(cfg.descId);
+    const picInput = document.getElementById(cfg.picId);
     const displayName = nameInput ? nameInput.value.trim() : '';
+    const description = descInput ? descInput.value.trim() : '';
+    const customLogo = picInput ? picInput._customLogo : null;
     const file = e.target.files[0];
     if(!file) return;
     e.target.value = '';
@@ -965,13 +1090,29 @@ function toggleBlock(phone){
       return;
     }
 
+    const isModerator = cfg.uploadedBy === 'moderator';
+    const extra = {
+      description: description,
+      logo: customLogo || null,
+      uploadedBy: cfg.uploadedBy,
+      submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
+      submittedByName: isModerator && currentUser ? currentUser.name : null,
+      status: isModerator ? 'awaiting_approval' : 'pending'
+    };
+
     const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || [''])[0];
     const downloadName = displayName.replace(/\.[a-zA-Z0-9]+$/, '') + ext;
 
+    function reset(){
+      if(nameInput) nameInput.value = '';
+      if(descInput) descInput.value = '';
+      clearCustomLogo(cfg.picId, cfg.picStatusId);
+    }
+
     if(file.type && file.type.startsWith('image/')){
       compressImageFile(file, 1400, 0.75).then(function(dataUrl){
-        finishAdminUpload(displayName, file.type, dataUrl, downloadName);
-        if(nameInput) nameInput.value = '';
+        finishAdminUpload(displayName, file.type, dataUrl, downloadName, extra);
+        reset();
       });
       return;
     }
@@ -985,15 +1126,34 @@ function toggleBlock(phone){
 
     const reader = new FileReader();
     reader.onload = function(ev){
-      finishAdminUpload(displayName, file.type, ev.target.result, downloadName);
-      if(nameInput) nameInput.value = '';
+      finishAdminUpload(displayName, file.type, ev.target.result, downloadName, extra);
+      reset();
     };
     reader.readAsDataURL(file);
+  }
+
+  // Admin edits a name/description already uploaded (either their own,
+  // or a moderator's submission after it's been approved).
+  function editUpload(id){
+    const u = uploads.find(x => x.id === id);
+    if(!u) return;
+    const newName = prompt(currentLang==='ur' ? 'Naya naam:' : 'New name:', u.fileName);
+    if(newName === null) return;
+    const newDesc = prompt(currentLang==='ur' ? 'Nayi description (khali chor saktay hain):' : 'New description (can be left blank):', u.description || '');
+    if(newDesc === null) return;
+    u.fileName = newName.trim() || u.fileName;
+    u.description = newDesc.trim();
+    saveState();
+    if(window.fbSaveUpload) window.fbSaveUpload(u);
+    renderAdminUploads();
+    renderCommunityUploads();
+    renderModOwnSubmissions();
   }
 
   function statusBadge(status){
     if(status === 'published') return `<span class="badge-status badge-published">Published</span>`;
     if(status === 'unpublished') return `<span class="badge-status badge-unpublished">Unpublished</span>`;
+    if(status === 'awaiting_approval') return `<span class="badge-status badge-awaiting">Awaiting Approval</span>`;
     return `<span class="badge-status badge-pending">Pending</span>`;
   }
 
@@ -1006,53 +1166,73 @@ function toggleBlock(phone){
 
   // Renders every upload as an "app icon" tile (rounded icon + name
   // underneath, like a phone home-screen), the same visual language as
-  // the link tiles below.
+  // the link tiles below. A custom/AI logo (u.logo) always wins; then a
+  // real image file; then the branded letter-tile fallback.
   function uploadIconHTML(u){
+    if(u.logo){
+      return `<div class="app-icon"><img src="${u.logo}">${brandMarkHTML()}</div>`;
+    }
     if(u.fileType && u.fileType.startsWith('image/')){
       return `<div class="app-icon"><img src="${u.dataUrl}"></div>`;
     }
     const letter = (u.fileName || '?').trim().charAt(0).toUpperCase() || '?';
     const seed = String(u.fileName || '');
     const color = '#' + Array.from(seed).reduce((acc,ch)=>(acc*31 + ch.charCodeAt(0))%16777215, 7).toString(16).padStart(6,'0');
-    return `<div class="app-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);"><span class="app-icon-fallback">${escapeHtml(letter)}</span></div>`;
+    return `<div class="app-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);"><span class="app-icon-fallback">${escapeHtml(letter)}</span>${brandMarkHTML()}</div>`;
   }
 
+  // Writes the published-files list into every screen that shows it
+  // (User's "Admin Updates" AND Moderator's mirrored "Admin Updates").
   function renderCommunityUploads(){
     const pub = uploads.filter(u => u.status === 'published');
-    document.getElementById('community-count').textContent = pub.length + ' files';
-    const area = document.getElementById('community-area');
-    if(pub.length === 0){
-      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak Admin ne koi file publish nahi ki.' : 'Admin has not published any files yet.'}</div>`;
-      return;
-    }
-    area.innerHTML = `<div class="app-tile-grid">` + pub.map((u,i) => `
-      <div class="app-tile" style="animation-delay:${i*0.08}s">
-        <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
-        <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
-      </div>
-    `).join('') + `</div>`;
+    [
+      { countEl:'community-count', areaEl:'community-area' },
+      { countEl:'mod-community-count', areaEl:'mod-community-area' }
+    ].forEach(function(t){
+      const area = document.getElementById(t.areaEl);
+      if(!area) return;
+      const countEl = document.getElementById(t.countEl);
+      if(countEl) countEl.textContent = pub.length + ' files';
+      if(pub.length === 0){
+        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak Admin ne koi file publish nahi ki.' : 'Admin has not published any files yet.'}</div>`;
+        return;
+      }
+      area.innerHTML = `<div class="app-tile-grid">` + pub.map((u,i) => `
+        <div class="app-tile" style="animation-delay:${i*0.08}s">
+          <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
+          <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
+          ${u.description ? `<div class="link-desc">${linkifyText(u.description)}</div>` : ''}
+        </div>
+      `).join('') + `</div>`;
+    });
   }
 
+  // Admin's own management list — excludes moderator submissions still
+  // awaiting approval (those live in the separate approval section).
   function renderAdminUploads(){
-    document.getElementById('uploads-count-label').textContent = uploads.length + ' records';
+    const visible = uploads.filter(u => u.status !== 'awaiting_approval');
+    document.getElementById('uploads-count-label').textContent = visible.length + ' records';
     const area = document.getElementById('admin-uploads-area');
-    if(uploads.length === 0){
+    if(visible.length === 0){
       area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi upload nahi hua.' : 'No uploads yet.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="app-tile-grid">` + uploads.map((u,i) => `
+    area.innerHTML = `<div class="app-tile-grid">` + visible.map((u,i) => `
       <div class="app-tile" style="animation-delay:${i*0.05}s">
         <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
         <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
+        ${u.description ? `<div class="link-desc">${linkifyText(u.description)}</div>` : ''}
         ${statusBadge(u.status)}
+        ${u.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting" style="margin-top:2px;">🛡 ${escapeHtml(u.submittedByName||'Moderator')}</div>` : ''}
         <div class="app-tile-actions">
           ${u.status !== 'published' ? `<button class="btn-outline-green" onclick="setUploadStatus(${u.id}, 'published')">Publish</button>` : ''}
           ${u.status === 'published' ? `<button class="btn-outline-amber" onclick="setUploadStatus(${u.id}, 'unpublished')">Unpublish</button>` : ''}
+          <button class="btn-outline-amber" onclick="editUpload(${u.id})">Edit</button>
           <button class="btn-outline-danger" onclick="deleteUpload(${u.id})">Delete</button>
         </div>
       </div>
     `).join('') + `</div>`;
-    document.getElementById('stat-uploads').textContent = uploads.length;
+    document.getElementById('stat-uploads').textContent = visible.length;
   }
 
   function setUploadStatus(id, status){
@@ -1070,6 +1250,7 @@ function toggleBlock(phone){
     }
     renderAdminUploads();
     renderCommunityUploads();
+    renderModOwnSubmissions();
   }
 
   function deleteUpload(id){
@@ -1078,6 +1259,7 @@ function toggleBlock(phone){
     if(window.fbDeleteUpload) window.fbDeleteUpload(id);
     renderAdminUploads();
     renderCommunityUploads();
+    renderModOwnSubmissions();
   }
 
   function openFilePreview(id){
@@ -1100,36 +1282,79 @@ function closeModal(){
   }
 
   // =================================================================
-  // LINKS — ADMIN adds links; users see them with auto-generated icons
+  // LINKS — Admin adds links directly (go live immediately); a
+  // Moderator adding a link lands in "awaiting_approval" instead, and
+  // only becomes visible once Admin approves it.
   // =================================================================
   function addAdminLink(){
-    const name = document.getElementById('link-name-input').value.trim();
-    const url = document.getElementById('link-url-input').value.trim();
+    submitLinkFromInputs({
+      nameId: 'link-name-input', urlId: 'link-url-input', descId: 'link-desc-input',
+      picId: 'link-pic-input', picStatusId: 'link-pic-status', uploadedBy: 'admin'
+    });
+  }
+
+  function submitModeratorLink(){
+    submitLinkFromInputs({
+      nameId: 'mod-link-name-input', urlId: 'mod-link-url-input', descId: 'mod-link-desc-input',
+      picId: 'mod-link-pic-input', picStatusId: 'mod-link-pic-status', uploadedBy: 'moderator'
+    });
+  }
+
+  function submitLinkFromInputs(cfg){
+    const nameEl = document.getElementById(cfg.nameId);
+    const urlEl = document.getElementById(cfg.urlId);
+    const descEl = document.getElementById(cfg.descId);
+    const picEl = document.getElementById(cfg.picId);
+    const name = nameEl ? nameEl.value.trim() : '';
+    const url = urlEl ? urlEl.value.trim() : '';
+    const description = descEl ? descEl.value.trim() : '';
+    const customLogo = picEl ? picEl._customLogo : null;
     if(!name || !url){
       alert(currentLang==='ur' ? 'Link ka naam aur URL dono zaroori hain.' : 'Link name and URL are both required.');
       return;
     }
     let cleaned = url;
     if(!/^https?:\/\//i.test(cleaned)) cleaned = 'https://' + cleaned;
-    const item = { id: linkIdCounter++, name, url: cleaned, addedAt: new Date().toLocaleString(), description: '' };
+    const isModerator = cfg.uploadedBy === 'moderator';
+    const item = {
+      id: linkIdCounter++, name, url: cleaned, addedAt: new Date().toLocaleString(),
+      description: description, logo: customLogo || null,
+      uploadedBy: cfg.uploadedBy,
+      submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
+      submittedByName: isModerator && currentUser ? currentUser.name : null,
+      status: isModerator ? 'awaiting_approval' : 'approved'
+    };
     links.push(item);
     saveState();
     if(window.fbSaveLink) window.fbSaveLink(item);
-    pushBroadcastNotification(
-      'Admin ne ek naya link add kiya hai: "' + name + '"',
-      'Admin added a new link: "' + name + '"'
-    );
-    document.getElementById('link-name-input').value = '';
-    document.getElementById('link-url-input').value = '';
+    if(!isModerator){
+      pushBroadcastNotification(
+        'Admin ne ek naya link add kiya hai: "' + name + '"',
+        'Admin added a new link: "' + name + '"'
+      );
+    } else {
+      pushAdminNotification(
+        'Moderator "' + item.submittedByName + '" ne ek naya link bheja hai approval ke liye: "' + name + '"',
+        'Moderator "' + item.submittedByName + '" submitted a new link for approval: "' + name + '"'
+      );
+    }
+    if(nameEl) nameEl.value = '';
+    if(urlEl) urlEl.value = '';
+    if(descEl) descEl.value = '';
+    clearCustomLogo(cfg.picId, cfg.picStatusId);
     renderAdminLinks();
     renderUserLinks();
-    generateLinkAIDescription(item);
+    renderModSubmissionsForAdmin();
+    renderModOwnSubmissions();
+    if(!description) generateLinkAIDescription(item);
+    if(!customLogo) generateAILogoForItem(item, 'link');
   }
 
   // Auto-writes a one-line "meaning" for a link using the admin's saved
   // Gemini key (same key used by the Gemini AI panel). If no key is set
   // yet, this quietly does nothing — the link still works fine without
-  // a description, the admin just won't get the AI blurb.
+  // a description, the admin just won't get the AI blurb. Only runs
+  // when nobody already typed their own description.
   function generateLinkAIDescription(item){
     const key = localStorage.getItem('atw_gemini_key') || '';
     if(!key) return;
@@ -1144,12 +1369,14 @@ function closeModal(){
       const reply = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text;
       if(!reply) return;
       const target = links.find(l => l.id === item.id);
-      if(!target) return;
+      if(!target || target.description) return;
       target.description = reply.trim().replace(/^["']|["']$/g, '');
       saveState();
       if(window.fbSaveLink) window.fbSaveLink(target);
       renderAdminLinks();
       renderUserLinks();
+      renderModSubmissionsForAdmin();
+      renderModOwnSubmissions();
     })
     .catch(() => { /* AI description is optional — fail silently */ });
   }
@@ -1160,11 +1387,40 @@ function closeModal(){
     if(window.fbDeleteLink) window.fbDeleteLink(id);
     renderAdminLinks();
     renderUserLinks();
+    renderModSubmissionsForAdmin();
+    renderModOwnSubmissions();
   }
 
-  // Auto-generate an icon for a link: try the site's favicon, fall back to
-  // the first letter of the link name in a colored tile.
+  // Admin edits a link's name/url/description.
+  function editLink(id){
+    const l = links.find(x => x.id === id);
+    if(!l) return;
+    const newName = prompt(currentLang==='ur' ? 'Naya naam:' : 'New name:', l.name);
+    if(newName === null) return;
+    const newUrl = prompt(currentLang==='ur' ? 'Naya URL:' : 'New URL:', l.url);
+    if(newUrl === null) return;
+    const newDesc = prompt(currentLang==='ur' ? 'Nayi description (khali chor saktay hain):' : 'New description (can be left blank):', l.description || '');
+    if(newDesc === null) return;
+    l.name = newName.trim() || l.name;
+    let cleaned = newUrl.trim();
+    if(cleaned){
+      if(!/^https?:\/\//i.test(cleaned)) cleaned = 'https://' + cleaned;
+      l.url = cleaned;
+    }
+    l.description = newDesc.trim();
+    saveState();
+    if(window.fbSaveLink) window.fbSaveLink(l);
+    renderAdminLinks();
+    renderUserLinks();
+    renderModOwnSubmissions();
+  }
+
+  // Auto-generate an icon for a link: a custom/AI logo (link.logo) wins
+  // first, then the site's favicon, then the branded letter-tile.
   function linkIconHTML(link){
+    if(link.logo){
+      return `<div class="link-icon"><img src="${link.logo}" style="width:100%;height:100%;object-fit:cover;">${brandMarkHTML()}</div>`;
+    }
     let host = '';
     try{ host = new URL(link.url).hostname; }catch(e){ host = link.url; }
     const letter = (link.name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -1173,48 +1429,194 @@ function closeModal(){
       <div class="link-icon" style="background:linear-gradient(140deg, ${color}, ${color}88);">
         <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
         <span class="link-icon-fallback" style="display:none;">${escapeHtml(letter)}</span>
+        ${brandMarkHTML()}
       </div>`;
   }
 
+  // Admin's management list — excludes links still awaiting a
+  // moderator's approval (those show in the separate approval section).
   function renderAdminLinks(){
+    const visible = links.filter(l => l.status !== 'awaiting_approval');
     const el = document.getElementById('links-count-label');
-    if(el) el.textContent = links.length + ' links';
+    if(el) el.textContent = visible.length + ' links';
     const area = document.getElementById('admin-links-area');
-    if(links.length === 0){
+    if(visible.length === 0){
       area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link add nahi hua.' : 'No links added yet.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="link-grid">` + links.map(l => `
+    area.innerHTML = `<div class="link-grid">` + visible.map(l => `
       <div class="link-card">
         ${linkIconHTML(l)}
         <div class="link-name">${escapeHtml(l.name)}</div>
         <div class="link-url">${escapeHtml(l.url)}</div>
-        ${l.description ? `<div class="link-desc">${escapeHtml(l.description)}</div>` : ''}
+        ${l.description ? `<div class="link-desc">${linkifyText(l.description)}</div>` : ''}
+        ${l.uploadedBy === 'moderator' ? `<div class="badge-status badge-awaiting">🛡 ${escapeHtml(l.submittedByName||'Moderator')}</div>` : ''}
         <div class="app-tile-actions">
           <a class="btn-outline-green" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">Open</a>
+          <button class="btn-outline-amber" onclick="editLink(${l.id})">Edit</button>
           <button class="btn-outline-danger" onclick="deleteLink(${l.id})">Delete</button>
         </div>
       </div>
     `).join('') + `</div>`;
   }
 
+  // Writes the approved links list into every screen that shows it
+  // (User's "Admin Links" AND Moderator's mirrored "Admin Links").
   function renderUserLinks(){
-    const el = document.getElementById('user-links-count');
-    if(el) el.textContent = links.length + ' links';
-    const area = document.getElementById('user-links-area');
-    if(links.length === 0){
-      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link nahi hai.' : 'No links yet.'}</div>`;
+    const visible = links.filter(l => l.status !== 'awaiting_approval');
+    [
+      { countEl:'user-links-count', areaEl:'user-links-area' },
+      { countEl:'mod-user-links-count', areaEl:'mod-user-links-area' }
+    ].forEach(function(t){
+      const area = document.getElementById(t.areaEl);
+      if(!area) return;
+      const countEl = document.getElementById(t.countEl);
+      if(countEl) countEl.textContent = visible.length + ' links';
+      if(visible.length === 0){
+        area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi link nahi hai.' : 'No links yet.'}</div>`;
+        return;
+      }
+      area.innerHTML = `<div class="link-grid">` + visible.map(l => `
+        <div class="link-card">
+          <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-main">
+            ${linkIconHTML(l)}
+            <div class="link-name">${escapeHtml(l.name)}</div>
+            ${l.description ? `<div class="link-desc">${linkifyText(l.description)}</div>` : ''}
+          </a>
+        </div>
+      `).join('') + `</div>`;
+    });
+  }
+
+  // =================================================================
+  // MODERATOR SUBMISSIONS — uploads/links a Moderator adds always land
+  // here first ("awaiting_approval"). Admin can Approve (upload joins
+  // the normal admin uploads list as "pending", ready to Publish; a
+  // link becomes "approved" and goes live immediately) or Reject
+  // (deleted outright).
+  // =================================================================
+  function renderModSubmissionsForAdmin(){
+    const area = document.getElementById('mod-submissions-area');
+    if(!area) return;
+    const pendingUploads = uploads.filter(u => u.status === 'awaiting_approval');
+    const pendingLinks = links.filter(l => l.status === 'awaiting_approval');
+    const total = pendingUploads.length + pendingLinks.length;
+    const countEl = document.getElementById('mod-submissions-count-label');
+    if(countEl) countEl.textContent = total + ' pending';
+    if(total === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi koi moderator submission pending nahi hai.' : 'No moderator submissions pending right now.'}</div>`;
       return;
     }
-    area.innerHTML = `<div class="link-grid">` + links.map(l => `
-      <div class="link-card">
-        <a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" class="link-main">
+    area.innerHTML = `<div class="app-tile-grid">` +
+      pendingUploads.map((u,i) => `
+        <div class="app-tile" style="animation-delay:${i*0.05}s">
+          <div class="app-icon-wrap" onclick="openFilePreview(${u.id})">${uploadIconHTML(u)}</div>
+          <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
+          ${u.description ? `<div class="link-desc">${linkifyText(u.description)}</div>` : ''}
+          <div class="badge-status badge-awaiting">🛡 ${escapeHtml(u.submittedByName||'Moderator')}</div>
+          <div class="app-tile-actions">
+            <button class="btn-outline-green" onclick="approveModeratorSubmission('upload', ${u.id})">Approve</button>
+            <button class="btn-outline-danger" onclick="rejectModeratorSubmission('upload', ${u.id})">Reject</button>
+          </div>
+        </div>
+      `).join('') +
+      pendingLinks.map((l,i) => `
+        <div class="app-tile" style="animation-delay:${i*0.05}s">
           ${linkIconHTML(l)}
-          <div class="link-name">${escapeHtml(l.name)}</div>
-          ${l.description ? `<div class="link-desc">${escapeHtml(l.description)}</div>` : ''}
-        </a>
-      </div>
-    `).join('') + `</div>`;
+          <div class="app-tile-name">${escapeHtml(l.name)}</div>
+          ${l.description ? `<div class="link-desc">${linkifyText(l.description)}</div>` : ''}
+          <div class="badge-status badge-awaiting">🛡 ${escapeHtml(l.submittedByName||'Moderator')}</div>
+          <div class="app-tile-actions">
+            <button class="btn-outline-green" onclick="approveModeratorSubmission('link', ${l.id})">Approve</button>
+            <button class="btn-outline-danger" onclick="rejectModeratorSubmission('link', ${l.id})">Reject</button>
+          </div>
+        </div>
+      `).join('') +
+    `</div>`;
+  }
+
+  function approveModeratorSubmission(kind, id){
+    if(kind === 'upload'){
+      const u = uploads.find(x => x.id === id);
+      if(!u) return;
+      u.status = 'pending'; // now behaves like any admin upload — Admin still clicks Publish
+      saveState();
+      if(window.fbSaveUpload) window.fbSaveUpload(u);
+      if(u.submittedByPhone) pushUserNotification(u.submittedByPhone,
+        'Aapki file "' + u.fileName + '" Admin ne approve kar li hai.',
+        'Your file "' + u.fileName + '" was approved by Admin.');
+    } else {
+      const l = links.find(x => x.id === id);
+      if(!l) return;
+      l.status = 'approved';
+      saveState();
+      if(window.fbSaveLink) window.fbSaveLink(l);
+      pushBroadcastNotification(
+        'Admin ne ek naya link add kiya hai: "' + l.name + '"',
+        'Admin added a new link: "' + l.name + '"'
+      );
+      if(l.submittedByPhone) pushUserNotification(l.submittedByPhone,
+        'Aapka link "' + l.name + '" Admin ne approve kar liya hai.',
+        'Your link "' + l.name + '" was approved by Admin.');
+    }
+    renderAdminUploads(); renderCommunityUploads();
+    renderAdminLinks(); renderUserLinks();
+    renderModSubmissionsForAdmin();
+    renderModOwnSubmissions();
+  }
+
+  function rejectModeratorSubmission(kind, id){
+    if(!confirm(currentLang==='ur' ? 'Ye submission reject/delete kar dain?' : 'Reject and delete this submission?')) return;
+    if(kind === 'upload'){
+      const u = uploads.find(x => x.id === id);
+      if(u && u.submittedByPhone) pushUserNotification(u.submittedByPhone,
+        'Aapki file "' + u.fileName + '" reject kar di gayi hai.',
+        'Your file "' + u.fileName + '" was rejected.');
+      uploads = uploads.filter(x => x.id !== id);
+      if(window.fbDeleteUpload) window.fbDeleteUpload(id);
+    } else {
+      const l = links.find(x => x.id === id);
+      if(l && l.submittedByPhone) pushUserNotification(l.submittedByPhone,
+        'Aapka link "' + l.name + '" reject kar diya gaya hai.',
+        'Your link "' + l.name + '" was rejected.');
+      links = links.filter(x => x.id !== id);
+      if(window.fbDeleteLink) window.fbDeleteLink(id);
+    }
+    saveState();
+    renderAdminUploads(); renderCommunityUploads();
+    renderAdminLinks(); renderUserLinks();
+    renderModSubmissionsForAdmin();
+    renderModOwnSubmissions();
+  }
+
+  // A moderator's own view of everything they've personally submitted,
+  // with its current status (Awaiting Approval / Pending / Published /
+  // Approved), shown at the bottom of their upload/link form.
+  function renderModOwnSubmissions(){
+    const area = document.getElementById('mod-own-submissions-area');
+    if(!area || !currentUser) return;
+    const myUploads = uploads.filter(u => u.uploadedBy === 'moderator' && u.submittedByPhone === currentUser.phone);
+    const myLinks = links.filter(l => l.uploadedBy === 'moderator' && l.submittedByPhone === currentUser.phone);
+    if(myUploads.length === 0 && myLinks.length === 0){
+      area.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Aapne abhi tak kuch submit nahi kiya.' : 'You have not submitted anything yet.'}</div>`;
+      return;
+    }
+    area.innerHTML = `<div class="list-header"><h3>// My Submissions</h3></div><div class="app-tile-grid">` +
+      myUploads.map((u,i) => `
+        <div class="app-tile" style="animation-delay:${i*0.05}s">
+          ${uploadIconHTML(u)}
+          <div class="app-tile-name">${escapeHtml(u.fileName)}</div>
+          ${statusBadge(u.status)}
+        </div>
+      `).join('') +
+      myLinks.map((l,i) => `
+        <div class="app-tile" style="animation-delay:${i*0.05}s">
+          ${linkIconHTML(l)}
+          <div class="app-tile-name">${escapeHtml(l.name)}</div>
+          ${statusBadge(l.status === 'approved' ? 'published' : l.status)}
+        </div>
+      `).join('') +
+    `</div>`;
   }
 
   // =================================================================
