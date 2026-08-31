@@ -413,6 +413,22 @@ const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, pho
     saveState();
     if(window.fbSaveUser) window.fbSaveUser(newUser);
 
+    // Notify Admin immediately — both inside the website (bell/log) and
+    // by email — whenever anyone joins/registers, regardless of whether
+    // Cloud Sync (Firebase) is connected.
+    pushAdminNotification(
+      'Nayi registration request: "' + name + '" (' + phone + ') — approval ka intezar hai.',
+      'New registration request: "' + name + '" (' + phone + ') — awaiting approval.'
+    );
+    fireBrowserNotification(
+      currentLang==='ur' ? 'Nayi Registration Request' : 'New Registration Request',
+      name + ' — ' + phone
+    );
+    sendEmailNotification(
+      'New user joined — Anas Technical World',
+      'A new user has registered on the website.\n\nName: ' + name + '\nPhone: ' + phone + '\n\nLog in to the Admin dashboard to accept or reject this request.'
+    );
+
     document.getElementById('reg-name').value = '';
     document.getElementById('reg-phone').value = '';
     document.getElementById('reg-password').value = '';
@@ -799,6 +815,80 @@ function toggleBlock(phone){
     if(currentRole === 'admin') renderNotifBell();
   }
 
+  // =================================================================
+  // EMAIL NOTIFICATIONS (EmailJS) — sends a real email to
+  // anas92642@gmail.com whenever a new user joins/registers, or when
+  // someone uploads a premium payment screenshot. Uses the admin's own
+  // free EmailJS account (Service ID / Template ID / Public Key saved
+  // in Settings → Email Notifications), same pattern as the Gemini key.
+  // Silently does nothing if not configured yet.
+  // =================================================================
+  const ADMIN_NOTIFY_EMAIL = 'anas92642@gmail.com';
+
+  function getEmailJsConfig(){
+    return {
+      serviceId: localStorage.getItem('atw_emailjs_service') || '',
+      templateId: localStorage.getItem('atw_emailjs_template') || '',
+      publicKey: localStorage.getItem('atw_emailjs_publickey') || ''
+    };
+  }
+
+  function initEmailJs(){
+    const cfg = getEmailJsConfig();
+    const statusEl = document.getElementById('emailjs-status');
+    const svcEl = document.getElementById('emailjs-service-input');
+    const tplEl = document.getElementById('emailjs-template-input');
+    const keyEl = document.getElementById('emailjs-publickey-input');
+    if(svcEl) svcEl.value = cfg.serviceId;
+    if(tplEl) tplEl.value = cfg.templateId;
+    if(keyEl) keyEl.value = cfg.publicKey;
+    if(cfg.serviceId && cfg.templateId && cfg.publicKey){
+      try{ if(window.emailjs) window.emailjs.init({ publicKey: cfg.publicKey }); }catch(e){ /* ignore */ }
+      if(statusEl) statusEl.textContent = currentLang==='ur' ? '✅ Email notifications ON hain.' : '✅ Email notifications are ON.';
+    } else if(statusEl){
+      statusEl.textContent = currentLang==='ur' ? 'Abhi connect nahi — email notifications OFF hain.' : 'Not connected — email notifications OFF.';
+    }
+  }
+
+  function saveEmailJsConfig(){
+    const svc = (document.getElementById('emailjs-service-input').value || '').trim();
+    const tpl = (document.getElementById('emailjs-template-input').value || '').trim();
+    const key = (document.getElementById('emailjs-publickey-input').value || '').trim();
+    localStorage.setItem('atw_emailjs_service', svc);
+    localStorage.setItem('atw_emailjs_template', tpl);
+    localStorage.setItem('atw_emailjs_publickey', key);
+    initEmailJs();
+  }
+
+  // Fires an email via EmailJS. `params` should include at minimum
+  // to_email, subject, message (map these to your EmailJS template's
+  // variables). Never throws — this must never break the site if the
+  // key is missing/wrong or the network fails.
+  function sendEmailNotification(subject, message){
+    const cfg = getEmailJsConfig();
+    if(!cfg.serviceId || !cfg.templateId || !cfg.publicKey || !window.emailjs) return;
+    try{
+      window.emailjs.send(cfg.serviceId, cfg.templateId, {
+        to_email: ADMIN_NOTIFY_EMAIL,
+        subject: subject,
+        message: message,
+        site_name: 'Anas Technical World'
+      }).catch(function(err){ console.warn('EmailJS send failed', err); });
+    }catch(e){ console.warn('EmailJS send failed', e); }
+  }
+
+  function sendTestEmailNotification(){
+    const statusEl = document.getElementById('emailjs-status');
+    const cfg = getEmailJsConfig();
+    if(!cfg.serviceId || !cfg.templateId || !cfg.publicKey){
+      if(statusEl) statusEl.textContent = currentLang==='ur' ? 'Pehle Service ID, Template ID aur Public Key save karain.' : 'Please save Service ID, Template ID and Public Key first.';
+      return;
+    }
+    sendEmailNotification('Test Notification — Anas Technical World', 'Ye ek test email hai. Agar aapko ye mil gayi hai to email notifications sahi kaam kar rahi hain.');
+    if(statusEl) statusEl.textContent = currentLang==='ur' ? '📧 Test email bhej di gayi — apna inbox check karain.' : '📧 Test email sent — check your inbox.';
+  }
+
+
   function combinedNotifList(){
     if(currentRole === 'admin'){
       return adminNotifications.slice();
@@ -1035,6 +1125,7 @@ function toggleBlock(phone){
       submittedByName: extra.submittedByName || null,
       status: extra.status || 'pending',
       premium: !!extra.premium,
+      price: extra.premium ? (Number(extra.price) > 0 ? Number(extra.price) : PREMIUM_FEE) : null,
       uploadedAt: new Date().toLocaleString()
     };
     uploads.push(item);
@@ -1068,6 +1159,7 @@ function toggleBlock(phone){
       picId: 'admin-upload-pic-input',
       picStatusId: 'admin-upload-pic-status',
       premiumId: 'admin-upload-premium-input',
+      priceId: 'admin-upload-price-input',
       uploadedBy: 'admin'
     });
   }
@@ -1082,6 +1174,7 @@ function toggleBlock(phone){
       picId: 'mod-upload-pic-input',
       picStatusId: 'mod-upload-pic-status',
       premiumId: 'mod-upload-premium-input',
+      priceId: 'mod-upload-price-input',
       uploadedBy: 'moderator'
     });
   }
@@ -1091,10 +1184,12 @@ function toggleBlock(phone){
     const descInput = document.getElementById(cfg.descId);
     const picInput = document.getElementById(cfg.picId);
     const premiumInput = cfg.premiumId ? document.getElementById(cfg.premiumId) : null;
+    const priceInput = cfg.priceId ? document.getElementById(cfg.priceId) : null;
     const displayName = nameInput ? nameInput.value.trim() : '';
     const description = descInput ? descInput.value.trim() : '';
     const customLogo = picInput ? picInput._customLogo : null;
     const isPremium = premiumInput ? !!premiumInput.checked : false;
+    const price = priceInput ? Number(priceInput.value) : PREMIUM_FEE;
     const file = e.target.files[0];
     if(!file) return;
     e.target.value = '';
@@ -1114,7 +1209,8 @@ function toggleBlock(phone){
       submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
       submittedByName: isModerator && currentUser ? currentUser.name : null,
       status: isModerator ? 'awaiting_approval' : 'pending',
-      premium: isPremium
+      premium: isPremium,
+      price: price
     };
 
     const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || [''])[0];
@@ -1124,6 +1220,7 @@ function toggleBlock(phone){
       if(nameInput) nameInput.value = '';
       if(descInput) descInput.value = '';
       if(premiumInput) premiumInput.checked = false;
+      if(priceInput) priceInput.value = 100;
       clearCustomLogo(cfg.picId, cfg.picStatusId);
     }
 
@@ -1204,7 +1301,8 @@ function toggleBlock(phone){
   // so it's clear at a glance that it needs Admin's approval to open.
   function premiumTagHTML(item){
     if(!item.premium) return '';
-    return `<div class="premium-tag">🔒 ${currentLang==='ur' ? 'پریمیم' : 'Premium'}</div>`;
+    const priceTxt = item.price ? (' — Rs ' + item.price) : '';
+    return `<div class="premium-tag">🔒 ${currentLang==='ur' ? 'پریمیم' : 'Premium'}${priceTxt}</div>`;
   }
 
   // Auto-generate an icon for a link: a custom/AI logo (link.logo) wins
@@ -1258,6 +1356,7 @@ function toggleBlock(phone){
           ${item.status !== 'published' ? `<button class="btn-outline-green" onclick="setUploadStatus(${item.id}, 'published')">Publish</button>` : ''}
           ${item.status === 'published' ? `<button class="btn-outline-amber" onclick="setUploadStatus(${item.id}, 'unpublished')">Unpublish</button>` : ''}
           <button class="btn-outline-amber" onclick="togglePremium('upload', ${item.id})">${item.premium ? '🔓' : '🔒'} Premium</button>
+          ${item.premium ? `<button class="btn-outline-amber" onclick="editPremiumPrice('upload', ${item.id})">💰 Rs ${item.price||PREMIUM_FEE}</button>` : ''}
           <button class="btn-outline-amber" onclick="editUpload(${item.id})">Edit</button>
           <button class="btn-outline-danger" onclick="deleteUpload(${item.id})">Delete</button>
         </div>
@@ -1274,6 +1373,7 @@ function toggleBlock(phone){
         <div class="app-tile-actions">
           <a class="btn-outline-green" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Open</a>
           <button class="btn-outline-amber" onclick="togglePremium('link', ${item.id})">${item.premium ? '🔓' : '🔒'} Premium</button>
+          ${item.premium ? `<button class="btn-outline-amber" onclick="editPremiumPrice('link', ${item.id})">💰 Rs ${item.price||PREMIUM_FEE}</button>` : ''}
           <button class="btn-outline-amber" onclick="editLink(${item.id})">Edit</button>
           <button class="btn-outline-danger" onclick="deleteLink(${item.id})">Delete</button>
         </div>
@@ -1328,8 +1428,7 @@ function toggleBlock(phone){
           return `
           <div class="app-tile" style="animation-delay:${i*0.08}s">
             <div class="app-icon-wrap" onclick="handleContentClick('upload', ${item.id})">${uploadIconHTML(item)}</div>
-            <div class="app-tile-name">${escapeHtml(item.fileName)}</div>
-            ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
+            <div class="app-tile-name" onclick="handleContentClick('upload', ${item.id})">${escapeHtml(item.fileName)}</div>
             ${premiumTagHTML(item)}
           </div>`;
         }
@@ -1338,7 +1437,6 @@ function toggleBlock(phone){
             <div class="link-main" style="cursor:pointer;" onclick="handleContentClick('link', ${item.id})">
               ${linkIconHTML(item)}
               <div class="link-name">${escapeHtml(item.name)}</div>
-              ${item.description ? `<div class="link-desc">${linkifyText(item.description)}</div>` : ''}
               ${premiumTagHTML(item)}
             </div>
           </div>`;
@@ -1356,6 +1454,29 @@ function toggleBlock(phone){
     const item = list.find(x => x.id === id);
     if(!item) return;
     item.premium = !item.premium;
+    if(item.premium){
+      const entered = prompt(currentLang==='ur' ? 'Is item ki price (Rs) likhain:' : 'Enter the price (Rs) for this item:', item.price || PREMIUM_FEE);
+      const n = Number(entered);
+      item.price = (entered !== null && n > 0) ? n : (item.price || PREMIUM_FEE);
+    } else {
+      item.price = null;
+    }
+    saveState();
+    if(kind === 'upload' && window.fbSaveUpload) window.fbSaveUpload(item);
+    if(kind === 'link' && window.fbSaveLink) window.fbSaveLink(item);
+    renderAdminContent();
+    renderUnifiedUserContent();
+  }
+
+  // Admin can change a premium item's price anytime.
+  function editPremiumPrice(kind, id){
+    const list = kind === 'upload' ? uploads : links;
+    const item = list.find(x => x.id === id);
+    if(!item || !item.premium) return;
+    const entered = prompt(currentLang==='ur' ? 'Nayi price (Rs) likhain:' : 'Enter new price (Rs):', item.price || PREMIUM_FEE);
+    const n = Number(entered);
+    if(entered === null || !(n > 0)) return;
+    item.price = n;
     saveState();
     if(kind === 'upload' && window.fbSaveUpload) window.fbSaveUpload(item);
     if(kind === 'link' && window.fbSaveLink) window.fbSaveLink(item);
@@ -1376,11 +1497,45 @@ function toggleBlock(phone){
     const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
     if(!item) return;
     if(!item.premium || currentRole === 'admin' || hasPremiumApproved(kind, id)){
-      if(kind === 'upload') openFilePreview(id);
-      else window.open(item.url, '_blank', 'noopener');
+      openContentDetailModal(kind, id);
       return;
     }
     openPremiumModal(kind, id);
+  }
+
+  // -----------------------------------------------------------------
+  // CONTENT DETAIL MODAL — the list/grid only ever shows an item's
+  // NAME. Tapping it opens this small modal which reveals the
+  // description (if Admin wrote one) plus an "Open" button that does
+  // the actual navigation/file-preview. Items with no description just
+  // show the name + Open button.
+  // -----------------------------------------------------------------
+  function openContentDetailModal(kind, id){
+    const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
+    if(!item) return;
+    const nameEl = document.getElementById('content-detail-name');
+    const descEl = document.getElementById('content-detail-desc');
+    const openBtn = document.getElementById('content-detail-open-btn');
+    if(nameEl) nameEl.textContent = kind === 'upload' ? item.fileName : item.name;
+    if(descEl){
+      descEl.innerHTML = item.description
+        ? linkifyText(item.description)
+        : `<span class="empty-note" style="padding:0;">${currentLang==='ur' ? 'Koi description nahi.' : 'No description added.'}</span>`;
+    }
+    if(openBtn){
+      openBtn.onclick = function(){
+        closeContentDetailModal();
+        if(kind === 'upload') openFilePreview(id);
+        else window.open(item.url, '_blank', 'noopener');
+      };
+    }
+    const modal = document.getElementById('content-detail-modal');
+    if(modal) modal.classList.add('show');
+  }
+
+  function closeContentDetailModal(){
+    const modal = document.getElementById('content-detail-modal');
+    if(modal) modal.classList.remove('show');
   }
 
   function hasPremiumApproved(kind, id){
@@ -1394,24 +1549,29 @@ function toggleBlock(phone){
     return mine.length ? mine[mine.length - 1] : null;
   }
 
-  function premiumInstructionsHTML(existing){
+  function premiumInstructionsHTML(existing, item){
+    const fee = (item && item.price) ? item.price : PREMIUM_FEE;
     const rejectedNote = existing && existing.status === 'rejected'
       ? (currentLang==='ur'
           ? `<p style="color:var(--danger); margin-bottom:8px;">Aap ki pichli request reject ho gayi thi — sahi screenshot ke sath dobara try karain.</p>`
           : `<p style="color:var(--danger); margin-bottom:8px;">Your previous request was rejected — please try again with the correct screenshot.</p>`)
       : '';
+    const descBlock = (item && item.description)
+      ? `<div class="content-detail-desc" style="margin-bottom:10px;">${linkifyText(item.description)}</div>`
+      : '';
     return `
+      ${descBlock}
       ${rejectedNote}
       <p>${currentLang==='ur'
-        ? 'Ye chez premium hai, iski fee <b>Rs ' + PREMIUM_FEE + '</b> hai.'
-        : 'This item is premium — the fee is <b>Rs ' + PREMIUM_FEE + '</b>.'}</p>
+        ? 'Ye chez premium hai, iski fee <b>Rs ' + fee + '</b> hai.'
+        : 'This item is premium — the fee is <b>Rs ' + fee + '</b>.'}</p>
       <div class="jazzcash-box">
         <div>JazzCash: <b>${PREMIUM_JAZZCASH_NUMBER}</b></div>
         <div>${currentLang==='ur' ? 'Naam' : 'Name'}: <b>${PREMIUM_JAZZCASH_NAME}</b></div>
       </div>
       <p>${currentLang==='ur'
-        ? 'Rs ' + PREMIUM_FEE + ' is number par bhejne ke baad, neeche apna payment screenshot upload karain.'
-        : 'After sending Rs ' + PREMIUM_FEE + ' to this number, upload your payment screenshot below.'}</p>
+        ? 'Rs ' + fee + ' is number par bhejne ke baad, neeche apna payment screenshot upload karain.'
+        : 'After sending Rs ' + fee + ' to this number, upload your payment screenshot below.'}</p>
     `;
   }
 
@@ -1437,7 +1597,7 @@ function toggleBlock(phone){
       if(formEl) formEl.style.display = 'none';
       if(submitBtn) submitBtn.style.display = 'none';
     } else {
-      bodyEl.innerHTML = premiumInstructionsHTML(existing);
+      bodyEl.innerHTML = premiumInstructionsHTML(existing, item);
       if(formEl) formEl.style.display = '';
       if(submitBtn) submitBtn.style.display = '';
     }
@@ -1485,6 +1645,14 @@ function toggleBlock(phone){
     pushAdminNotification(
       '"' + req.userName + '" ne "' + req.itemName + '" ke liye premium payment screenshot bheja hai — approval chahiye.',
       '"' + req.userName + '" sent a premium payment screenshot for "' + req.itemName + '" — needs approval.'
+    );
+    fireBrowserNotification(
+      currentLang==='ur' ? 'Nayi Premium Payment Request' : 'New Premium Payment Request',
+      req.userName + ' — ' + req.itemName
+    );
+    sendEmailNotification(
+      'Premium payment screenshot received — Anas Technical World',
+      'A user uploaded a payment screenshot for a premium item.\n\nUser: ' + req.userName + ' (' + req.userPhone + ')\nItem: ' + req.itemName + '\nFee: Rs ' + (item.price || PREMIUM_FEE) + '\n\nLog in to the Admin dashboard → Premium_Requests.log to view the screenshot and Accept/Reject.'
     );
     renderPremiumRequests();
     closePremiumModal();
@@ -1611,14 +1779,14 @@ function closeModal(){
   function addAdminLink(){
     submitLinkFromInputs({
       nameId: 'link-name-input', urlId: 'link-url-input', descId: 'link-desc-input',
-      picId: 'link-pic-input', picStatusId: 'link-pic-status', premiumId: 'link-premium-input', uploadedBy: 'admin'
+      picId: 'link-pic-input', picStatusId: 'link-pic-status', premiumId: 'link-premium-input', priceId: 'link-price-input', uploadedBy: 'admin'
     });
   }
 
   function submitModeratorLink(){
     submitLinkFromInputs({
       nameId: 'mod-link-name-input', urlId: 'mod-link-url-input', descId: 'mod-link-desc-input',
-      picId: 'mod-link-pic-input', picStatusId: 'mod-link-pic-status', premiumId: 'mod-link-premium-input', uploadedBy: 'moderator'
+      picId: 'mod-link-pic-input', picStatusId: 'mod-link-pic-status', premiumId: 'mod-link-premium-input', priceId: 'mod-link-price-input', uploadedBy: 'moderator'
     });
   }
 
@@ -1628,11 +1796,13 @@ function closeModal(){
     const descEl = document.getElementById(cfg.descId);
     const picEl = document.getElementById(cfg.picId);
     const premiumEl = cfg.premiumId ? document.getElementById(cfg.premiumId) : null;
+    const priceEl = cfg.priceId ? document.getElementById(cfg.priceId) : null;
     const name = nameEl ? nameEl.value.trim() : '';
     const url = urlEl ? urlEl.value.trim() : '';
     const description = descEl ? descEl.value.trim() : '';
     const customLogo = picEl ? picEl._customLogo : null;
     const isPremium = premiumEl ? !!premiumEl.checked : false;
+    const price = priceEl ? Number(priceEl.value) : PREMIUM_FEE;
     if(!name || !url){
       alert(currentLang==='ur' ? 'Link ka naam aur URL dono zaroori hain.' : 'Link name and URL are both required.');
       return;
@@ -1647,7 +1817,8 @@ function closeModal(){
       submittedByPhone: isModerator && currentUser ? currentUser.phone : null,
       submittedByName: isModerator && currentUser ? currentUser.name : null,
       status: isModerator ? 'awaiting_approval' : 'approved',
-      premium: isPremium
+      premium: isPremium,
+      price: isPremium ? (price > 0 ? price : PREMIUM_FEE) : null
     };
     links.push(item);
     saveState();
@@ -1667,6 +1838,7 @@ function closeModal(){
     if(urlEl) urlEl.value = '';
     if(descEl) descEl.value = '';
     if(premiumEl) premiumEl.checked = false;
+    if(priceEl) priceEl.value = 100;
     clearCustomLogo(cfg.picId, cfg.picStatusId);
     renderAdminLinks();
     renderUserLinks();
@@ -2174,6 +2346,7 @@ function closeModal(){
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
     const savedKey = localStorage.getItem('atw_gemini_key');
     if(savedKey) document.getElementById('gemini-key-input').value = savedKey;
+    initEmailJs();
 
     // If this browser had an active session (admin or a logged-in user),
     // resume it instead of showing the login/register portal again.

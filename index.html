@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme-3d.css">
 </head>
 <body data-lang="ur">
 
@@ -243,7 +244,8 @@
           </div>
           <input type="file" id="admin-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'admin-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
-          <label class="premium-check-row"><input type="checkbox" id="admin-upload-premium-input"> 🔒 Ye upload Premium rakhain (100 Rs approval ke baad khulega)</label>
+          <label class="premium-check-row"><input type="checkbox" id="admin-upload-premium-input"> 🔒 Ye upload Premium rakhain</label>
+          <div class="premium-price-row"><span>Rs</span><input type="number" id="admin-upload-price-input" min="1" value="100" placeholder="Price"></div>
           <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
           <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
         </div>
@@ -254,7 +256,8 @@
             <input type="text" id="link-url-input" data-i18n-ph="linkUrlPh" placeholder="https://...">
           </div>
           <textarea id="link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
-          <label class="premium-check-row"><input type="checkbox" id="link-premium-input"> 🔒 Ye link Premium rakhain (100 Rs approval ke baad khulega)</label>
+          <label class="premium-check-row"><input type="checkbox" id="link-premium-input"> 🔒 Ye link Premium rakhain</label>
+          <div class="premium-price-row"><span>Rs</span><input type="number" id="link-price-input" min="1" value="100" placeholder="Price"></div>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="link-pic-status"></span>
@@ -330,6 +333,16 @@
               <input type="checkbox" id="ai-standin-toggle" onchange="toggleAiStandIn()"> Enable AI stand-in when I'm offline
             </label>
             <div class="success-msg" id="ai-standin-status"></div>
+          </div>
+          <div class="settings-card" id="email-notif-card">
+            <h4>// Email Notifications (to anas92642@gmail.com)</h4>
+            <div class="note">Jab koi naya user registration request bheje YA koi premium payment screenshot upload kare, aapko website notification ke sath sath is Gmail par bhi email chali jayegi. Ye kaam karne ke liye ek free EmailJS account (emailjs.com) chahiye — Service ID, Template ID aur Public Key yahan paste karain. (Key sirf isi browser mein local save hoti hai.)</div>
+            <div class="field"><label>Service ID</label><input type="text" id="emailjs-service-input" placeholder="service_xxxxxxx"></div>
+            <div class="field"><label>Template ID</label><input type="text" id="emailjs-template-input" placeholder="template_xxxxxxx"></div>
+            <div class="field"><label>Public Key</label><input type="text" id="emailjs-publickey-input" placeholder="Public Key"></div>
+            <button class="btn-primary" onclick="saveEmailJsConfig()">Save Email Settings</button>
+            <button class="btn-primary ghost" style="margin-top:8px;" onclick="sendTestEmailNotification()">Send Test Email</button>
+            <div class="success-msg" id="emailjs-status">Not connected — email notifications OFF.</div>
           </div>
           <div class="settings-card">
             <h4 data-i18n="browserNotifTitle">// Browser Notifications</h4>
@@ -434,6 +447,7 @@
           <input type="file" id="mod-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
           <label class="premium-check-row"><input type="checkbox" id="mod-upload-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
+          <div class="premium-price-row"><span>Rs</span><input type="number" id="mod-upload-price-input" min="1" value="100" placeholder="Price"></div>
           <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-input').click()">+ Upload File</button>
           <input type="file" id="mod-upload-input" style="display:none" onchange="handleModeratorUpload(event)">
         </div>
@@ -446,6 +460,7 @@
           </div>
           <textarea id="mod-link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
           <label class="premium-check-row"><input type="checkbox" id="mod-link-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
+          <div class="premium-price-row"><span>Rs</span><input type="number" id="mod-link-price-input" min="1" value="100" placeholder="Price"></div>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('mod-link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="mod-link-pic-status"></span>
@@ -471,6 +486,18 @@
     <div class="modal-actions">
       <a class="btn-primary" id="modal-download" download data-i18n="btnDownload">Download</a>
       <button class="btn-primary ghost" onclick="closeModal()" data-i18n="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONTENT DETAIL MODAL (shows description on click) ============ -->
+<div class="modal-overlay" id="content-detail-modal">
+  <div class="modal-box">
+    <h4 id="content-detail-name"></h4>
+    <div id="content-detail-desc" class="content-detail-desc"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="content-detail-open-btn">Open</button>
+      <button class="btn-primary ghost" onclick="closeContentDetailModal()" data-i18n="btnClose">Close</button>
     </div>
   </div>
 </div>
@@ -516,7 +543,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="script.js"></script>
 <script src="firebase-sync.js"></script>
+<script src="theme-3d.js"></script>
 </body>
 </html>

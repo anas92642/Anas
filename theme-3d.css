@@ -1,0 +1,180 @@
+/* =====================================================================
+   ANAS TECHNICAL WORLD — 3D / 4K TECHNICAL THEME LAYER
+   Loaded AFTER style.css. Only adds/upgrades visuals (glass, neon,
+   3D depth, particle-network canvas) — never removes or renames any
+   existing class/ID, so all functionality in script.js keeps working.
+   ===================================================================== */
+
+:root{
+  --glass-bg: rgba(10, 18, 32, 0.55);
+  --glass-border: rgba(61, 243, 255, 0.28);
+  --neon-cyan: #3df3ff;
+  --neon-green: #3dff9a;
+  --neon-amber: #ffbe3d;
+  --depth-shadow: 0 20px 60px -20px rgba(0,0,0,0.85), 0 0 0 1px rgba(61,243,255,0.06) inset;
+}
+
+/* Full-bleed animated particle-network canvas, sits under everything
+   that already exists (bg-grid / bg-glow / bg-photo) but above solid
+   background so it reads as a "4K technical" depth layer. */
+#theme3d-canvas{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  width:100%; height:100%; opacity:0.55;
+}
+
+/* Subtle chromatic vignette + scan-depth for a "4K panel" feel */
+body::after{
+  content:"";
+  position:fixed; inset:0; z-index:3; pointer-events:none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+  mix-blend-mode: multiply;
+}
+
+/* ---------------- Glass panels for every section/card ---------------- */
+.section > .list-header,
+.settings-card,
+.upload-drop,
+.ai-command-box,
+.modal-box,
+.welcome-wrap > .topbar{
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--depth-shadow);
+}
+
+.settings-card, .upload-drop, .ai-command-box{
+  padding: 18px !important;
+  margin-bottom: 14px;
+  transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+}
+.settings-card:hover, .upload-drop:hover, .ai-command-box:hover{
+  transform: translateY(-3px);
+  border-color: rgba(61,243,255,0.55) !important;
+  box-shadow: 0 26px 70px -20px rgba(0,0,0,0.9), 0 0 26px -6px rgba(61,243,255,0.35);
+}
+
+.modal-box{
+  animation: modalRise3d .35s cubic-bezier(.2,.9,.25,1);
+}
+@keyframes modalRise3d{
+  from{ opacity:0; transform: perspective(900px) rotateX(6deg) translateY(24px) scale(.96); }
+  to{ opacity:1; transform: perspective(900px) rotateX(0) translateY(0) scale(1); }
+}
+
+/* ---------------- 3D tilt app-icon tiles (the "4K app icon" look) ---------------- */
+.app-tile, .link-card{
+  perspective: 700px;
+}
+.app-icon, .link-icon{
+  transform-style: preserve-3d;
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease, filter .35s ease;
+  box-shadow:
+    0 14px 26px -10px rgba(0,0,0,0.75),
+    0 0 0 1px rgba(61,243,255,0.14) inset,
+    0 0 18px -4px rgba(61,243,255,0.35);
+}
+.app-icon:hover, .link-icon:hover{
+  transform: translateY(-6px) rotateX(8deg) rotateY(-8deg) scale(1.06);
+  box-shadow:
+    0 26px 40px -14px rgba(0,0,0,0.85),
+    0 0 0 1px rgba(61,243,255,0.35) inset,
+    0 0 30px -2px rgba(61,243,255,0.65);
+  filter: brightness(1.08);
+}
+.app-tile-name, .link-name{
+  text-shadow: 0 0 10px rgba(61,243,255,0.25);
+}
+
+.lock-corner{
+  filter: drop-shadow(0 0 6px rgba(255,190,61,0.85));
+}
+
+/* ---------------- Neon buttons with depth ---------------- */
+.btn-primary, .photo-btn, .btn-outline-green, .btn-outline-amber, .btn-outline-danger{
+  position: relative;
+  transition: transform .2s ease, box-shadow .25s ease, filter .25s ease !important;
+}
+.btn-primary:hover, .photo-btn:hover{
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 28px -8px rgba(61,243,255,0.55), 0 0 22px -4px rgba(61,243,255,0.6) !important;
+  filter: brightness(1.12);
+}
+.btn-outline-green:hover{ box-shadow: 0 0 16px -2px rgba(61,255,154,0.65); transform: translateY(-2px); }
+.btn-outline-amber:hover{ box-shadow: 0 0 16px -2px rgba(255,190,61,0.65); transform: translateY(-2px); }
+.btn-outline-danger:hover{ box-shadow: 0 0 16px -2px rgba(255,77,109,0.65); transform: translateY(-2px); }
+
+/* ---------------- Premium price row ---------------- */
+.premium-price-row{
+  display:flex; align-items:center; gap:8px;
+  background: rgba(255,190,61,0.06);
+  border: 1px solid rgba(255,190,61,0.35);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 8px 0 12px;
+  font-family: var(--font-m);
+  font-size: 13px;
+}
+.premium-price-row span{ color: var(--neon-amber); font-weight:600; }
+.premium-price-row input{
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,190,61,0.4);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 8px;
+  width: 110px;
+  font-family: var(--font-m);
+}
+
+/* ---------------- Content detail modal (description-on-click) ---------------- */
+.content-detail-desc{
+  font-family: var(--font-m);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  background: rgba(61,243,255,0.05);
+  border: 1px solid rgba(61,243,255,0.18);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.content-detail-desc a{ color: var(--neon-cyan); text-decoration: underline; }
+
+/* ---------------- Notification bell glow ---------------- */
+#notif-badge{
+  box-shadow: 0 0 10px rgba(255,77,109,0.85);
+}
+#notif-panel{
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--depth-shadow);
+}
+
+/* ---------------- Headings get a subtle neon glow ---------------- */
+h1, h2, h3, h4, .list-header h3{
+  text-shadow: 0 0 14px rgba(61,243,255,0.22);
+}
+
+/* ---------------- Scrollbar to match the theme ---------------- */
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-track{ background: var(--bg); }
+::-webkit-scrollbar-thumb{ background: linear-gradient(180deg, var(--neon-cyan), var(--cyan-dim)); border-radius:8px; }
+
+/* ---------------- Mobile: tone down heavy blur/3D for performance ---------------- */
+@media (max-width: 640px){
+  #theme3d-canvas{ opacity:0.35; }
+  .app-icon:hover, .link-icon:hover{ transform: translateY(-3px) scale(1.03); }
+  .settings-card, .upload-drop, .ai-command-box{ backdrop-filter: blur(8px); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  #theme3d-canvas{ display:none; }
+  .app-icon, .link-icon, .settings-card, .upload-drop, .ai-command-box, .btn-primary{
+    transition: none !important;
+    animation: none !important;
+  }
+}

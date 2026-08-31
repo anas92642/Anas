@@ -159,7 +159,61 @@ publicly.
   `premiumRequests` collection carries the payment screenshots and
   their Accept/Reject status.
 
-## Gemini AI panel
+## 3D / 4K Technical Theme
+- `theme-3d.css` and `theme-3d.js` (loaded after `style.css`/`script.js`)
+  add a glass/neon "4K technical" look on top of the existing design:
+  frosted-glass panels, glowing neon borders, 3D-tilt app icons, and an
+  animated particle-network canvas background that reacts to your mouse.
+- Nothing was renamed or removed, so this is purely visual — all
+  existing logic keeps working exactly as before.
+
+## Per-item Premium pricing
+- Premium is no longer a single fixed Rs 100 for everything. Both the
+  Admin upload form and the Admin link form now have a **Price (Rs)**
+  box next to the "🔒 Premium" checkbox — set whatever price you like
+  per file/link.
+- Already-published items: click the **🔒/🔓 Premium** button to
+  toggle Premium on (it'll ask you for the price), or the **💰 Rs …**
+  button on an already-Premium item to change its price anytime.
+- The payment screen a user sees now shows that specific item's price,
+  JazzCash number, and name.
+
+## Description shown only when tapped
+- The public content grid (both for Users and Moderators) now shows
+  **only the name** under each icon — exactly like a phone home-screen.
+- Tapping an item opens a small popup showing its description (if
+  Admin wrote one) plus an **Open** button that actually opens the
+  file/link. Items with no description just show the name + Open
+  button. Premium items still go through the payment/approval flow
+  first, and now also show the description there.
+
+## Automatic notifications when someone joins, and on premium payments
+- The moment anyone registers on the site, Admin now gets **(1)** an
+  in-website notification (the 🔔 bell, and the toast area) **and**
+  **(2)** an email — this fires immediately, whether or not Cloud Sync
+  (Firebase) is connected.
+- The moment a user uploads a premium payment screenshot, Admin gets
+  the same: an in-website notification **and** an email.
+- All emails go to **anas92642@gmail.com**.
+- **Setup required (one-time, free):** since this is a static site,
+  sending real email needs an email-sending service — this uses
+  [EmailJS](https://www.emailjs.com):
+  1. Create a free EmailJS account → **Email Services** → connect your
+     Gmail (or any provider) → note the **Service ID**.
+  2. **Email Templates** → create a template with variables
+     `{{to_email}}`, `{{subject}}`, `{{message}}`, `{{site_name}}` in
+     the body (e.g. subject field = `{{subject}}`, body = `{{message}}`)
+     → note the **Template ID**.
+  3. **Account → General** → copy your **Public Key**.
+  4. On the site: log in as Admin → **Settings → Email Notifications
+     (to anas92642@gmail.com)** → paste the Service ID, Template ID,
+     and Public Key → **Save Email Settings** → click **Send Test
+     Email** to confirm it works.
+  - Until this is configured, the website notifications (bell/log)
+    still work instantly on their own — only the email part needs the
+    EmailJS keys.
+
+
 The admin's "Gemini AI Assistant" panel calls Google's Gemini API directly
 from the browser using an API key the admin enters (get one free at
 https://aistudio.google.com/apikey). The key is stored only in that
