@@ -1,0 +1,223 @@
+/* =====================================================================
+   CIRCLE / CRMS-STYLE ICON THEME
+   Adds: circular animated icon badges (stat tiles, upload thumbnails,
+   app icons), a nicer step-style upload card, and the live-camera
+   capture modal look. Loaded AFTER new-theme.css so it layers on top
+   without touching any existing markup or logic.
+   ===================================================================== */
+
+/* ---------- circular icon ring keyframes ---------- */
+@keyframes circlePulse{
+  0%{ box-shadow:0 0 0 0 rgba(47,122,134,0.35); }
+  70%{ box-shadow:0 0 0 10px rgba(47,122,134,0); }
+  100%{ box-shadow:0 0 0 0 rgba(47,122,134,0); }
+}
+@keyframes circleSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+@keyframes shakeX{
+  10%,90%{ transform:translateX(-2px); }
+  20%,80%{ transform:translateX(4px); }
+  30%,50%,70%{ transform:translateX(-8px); }
+  40%,60%{ transform:translateX(8px); }
+}
+
+/* ---------- STAT TILES → circular icon on top, animated ring ---------- */
+.stats-row .stat{
+  position:relative;
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  padding-top:34px !important;
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.stats-row .stat:hover{ transform:translateY(-4px); }
+.stats-row .stat::before{
+  content:'';
+  width:46px; height:46px; border-radius:50%;
+  margin-bottom:10px;
+  background:radial-gradient(circle at 35% 30%, #ffffff, #eaf4f4 70%);
+  border:3px solid var(--cyan, #2f7a86);
+  box-shadow:0 6px 14px -6px rgba(47,122,134,0.5);
+  animation:circlePulse 2.6s infinite;
+}
+.stats-row .stat:nth-child(1)::before{ content:'👥'; font-size:18px; display:flex; align-items:center; justify-content:center; border-color:#3aa876; }
+.stats-row .stat:nth-child(2)::before{ content:'📤'; font-size:18px; display:flex; align-items:center; justify-content:center; border-color:#e2b93b; }
+.stats-row .stat:nth-child(3)::before{ content:'💬'; font-size:18px; display:flex; align-items:center; justify-content:center; border-color:#2c6081; }
+.stats-row .stat:nth-child(4)::before{ content:'●'; font-size:18px; color:#3aa876; display:flex; align-items:center; justify-content:center; border-color:#3aa876; }
+.stats-row .stat:nth-child(5)::before{ content:'○'; font-size:18px; display:flex; align-items:center; justify-content:center; border-color:#a12958; }
+
+/* ---------- SECTION HEADER ICON CHIP (Dashboard / Users / Approval etc.) ---------- */
+.list-header{ display:flex; align-items:center; gap:12px; }
+.list-header h3{
+  display:flex; align-items:center; gap:10px;
+}
+.list-header h3::before{
+  content:'◆';
+  width:34px; height:34px; min-width:34px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px;
+  background:linear-gradient(160deg, var(--cyan,#2f7a86), #235a64);
+  color:#fff;
+  box-shadow:0 6px 14px -6px rgba(47,122,134,0.6);
+}
+
+/* ---------- USER ROWS / APPROVAL ROWS as boxed cards with circular avatar ---------- */
+.user-row, .moderator-request-row{
+  display:flex; align-items:center; gap:14px;
+  padding:14px !important;
+  transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.user-row:hover, .moderator-request-row:hover{
+  transform:translateY(-2px);
+  border-color:var(--cyan,#2f7a86) !important;
+  box-shadow:0 10px 22px -14px rgba(47,122,134,0.45) !important;
+}
+
+/* ---------- APP ICON / UPLOAD THUMBS → full circle, gradient ring, hover animation ---------- */
+.app-icon-wrap{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  transition:transform .2s ease;
+}
+.app-icon-wrap:hover{ transform:translateY(-4px) scale(1.04); }
+.upload-thumb{
+  border-radius:50% !important;
+  width:60px; height:60px;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  border:3px solid #fff;
+  box-shadow:0 0 0 3px var(--cyan,#2f7a86), 0 10px 20px -10px rgba(47,122,134,0.55);
+  transition:box-shadow .25s ease, transform .25s ease;
+  position:relative;
+}
+.app-icon-wrap:hover .upload-thumb{
+  box-shadow:0 0 0 3px var(--green,#3aa876), 0 14px 26px -10px rgba(58,168,118,0.6);
+}
+.lock-corner{ border-radius:50%; }
+
+/* ---------- UPLOAD BOX — nicer stylish card with dashed animated ring ---------- */
+.upload-drop{
+  border-radius:20px !important;
+  padding:26px 20px !important;
+  text-align:center;
+  position:relative;
+  background:
+    linear-gradient(#f8fbfb,#f8fbfb) padding-box,
+    repeating-conic-gradient(var(--cyan,#2f7a86) 0% 6%, transparent 0% 12%) border-box !important;
+  border:3px dashed transparent !important;
+  animation:none;
+}
+.upload-drop:hover{
+  background:
+    linear-gradient(#f2fafa,#f2fafa) padding-box,
+    repeating-conic-gradient(var(--green,#3aa876) 0% 6%, transparent 0% 12%) border-box !important;
+}
+.upload-drop::before{
+  content:'⬆';
+  display:flex; align-items:center; justify-content:center;
+  width:56px; height:56px; margin:0 auto 12px;
+  border-radius:50%;
+  font-size:22px; color:#fff;
+  background:linear-gradient(160deg, var(--cyan,#2f7a86), #235a64);
+  box-shadow:0 8px 18px -8px rgba(47,122,134,0.6);
+  animation:circlePulse 2.4s infinite;
+}
+
+/* ---------- STEP-BY-STEP UPLOAD/LINK CARD (Naam → Link/File → Description → Amount) ---------- */
+.step-card{ text-align:left !important; }
+.step-card::before{ display:none !important; } /* remove the generic upload-drop icon, steps carry their own numbers */
+.step-row{
+  display:flex; align-items:center; gap:10px;
+  margin:16px 0 8px;
+}
+.step-row:first-of-type{ margin-top:6px; }
+.step-num{
+  width:26px; height:26px; min-width:26px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:800; color:#fff;
+  background:linear-gradient(160deg, var(--cyan,#2f7a86), #235a64);
+  box-shadow:0 6px 12px -6px rgba(47,122,134,0.6);
+  position:relative;
+}
+.step-row::after{
+  content:'';
+  flex:1;
+  height:1px;
+  background:linear-gradient(90deg, #cfe0e2, transparent);
+}
+.step-lbl{
+  font-family:var(--font-h); font-size:12.5px; font-weight:700; color:var(--cyan-dim,#5c8a92);
+  letter-spacing:.02em; text-transform:uppercase;
+}
+.btn-final-add{
+  width:100%; margin-top:10px; justify-content:center;
+  background:linear-gradient(180deg, #35808d, #2c6975) !important; color:#fff !important; border:none !important;
+}
+
+/* upload / link form fields — a bit more breathing room + rounded */
+#content-section input[type="text"],
+#content-section input[type="number"],
+#content-section textarea,
+#mod-upload-section input[type="text"],
+#mod-upload-section input[type="number"],
+#mod-upload-section textarea{
+  width:100%; margin-bottom:10px;
+}
+.photo-btn{
+  border-radius:24px !important;
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 18px !important;
+  font-weight:600;
+}
+
+/* ---------- LIVE CAMERA CAPTURE — photo field + modal ---------- */
+.photo-required-hint{
+  font-size:11px; color:var(--danger,#e0507a); margin-top:6px; max-width:220px;
+}
+.photo-preview.live-photo-preview{
+  border-radius:50% !important;
+  width:84px; height:84px;
+  overflow:hidden;
+  position:relative;
+  border:3px dashed #cfdadd !important;
+}
+.photo-preview.live-photo-preview.has-photo{
+  border:3px solid var(--green,#3aa876) !important;
+}
+.photo-preview.live-photo-preview img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.photo-preview.live-photo-preview .live-badge{
+  position:absolute; bottom:2px; left:50%; transform:translateX(-50%);
+  font-size:8px; font-weight:700; letter-spacing:.03em;
+  background:rgba(224,80,122,0.95); color:#fff;
+  padding:1px 6px; border-radius:8px;
+}
+.photo-required-shake{ animation:shakeX .5s; border-color:var(--danger,#e0507a) !important; }
+
+.camera-btn{ position:relative; }
+.camera-btn-dot{
+  width:9px; height:9px; border-radius:50%; background:#e0507a; display:inline-block;
+  animation:circlePulse 1.6s infinite;
+}
+
+.camera-modal-box{ max-width:420px; text-align:center; }
+.camera-stage{
+  position:relative;
+  width:260px; height:260px; margin:0 auto 14px;
+  border-radius:50%;
+  overflow:hidden;
+  background:#0d1a1d;
+  border:4px solid var(--cyan,#2f7a86);
+  box-shadow:0 14px 30px -12px rgba(47,122,134,0.55);
+}
+.camera-stage video, .camera-stage img{
+  width:100%; height:100%; object-fit:cover;
+  transform:scaleX(-1); /* mirror the live preview like a selfie camera */
+}
+.camera-stage img{ transform:none; } /* already mirrored when captured */
+.camera-ring{
+  position:absolute; inset:-4px;
+  border-radius:50%;
+  border:3px dashed rgba(58,168,118,0.7);
+  animation:circleSpin 6s linear infinite;
+  pointer-events:none;
+}
+.camera-error{ color:var(--danger,#e0507a); font-size:12px; margin-bottom:8px; min-height:14px; }
+.camera-actions{ flex-wrap:wrap; justify-content:center; gap:8px; }

@@ -390,6 +390,105 @@ function switchUserTab(which){
     });
   }
 
+  // =================================================================
+  // LIVE CAMERA CAPTURE — registration ki picture sirf live camera se
+  // li jaati hai (gallery/file upload nahi). Ye getUserMedia() istemal
+  // karta hai taake user ka chehra live camera se capture ho.
+  // =================================================================
+  let cameraStream = null;
+  let cameraTargetPreviewId = null;
+  let cameraShotDataUrl = null;
+
+  function openCameraCapture(targetPreviewId){
+    cameraTargetPreviewId = targetPreviewId;
+    cameraShotDataUrl = null;
+    const overlay = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+    const shotImg = document.getElementById('camera-shot-preview');
+    const errBox = document.getElementById('camera-error');
+    errBox.textContent = '';
+    shotImg.style.display = 'none';
+    video.style.display = 'block';
+    document.getElementById('camera-capture-btn').style.display = 'inline-flex';
+    document.getElementById('camera-retake-btn').style.display = 'none';
+    document.getElementById('camera-use-btn').style.display = 'none';
+    overlay.classList.add('show');
+
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      errBox.textContent = currentLang==='ur'
+        ? 'Ye browser live camera support nahi karta, ya site https/localhost par nahi khuli. Camera access ke liye https se site kholain.'
+        : 'This browser does not support live camera, or the site is not open over https/localhost. Please open the site over https to use the camera.';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      .then(function(stream){
+        cameraStream = stream;
+        video.srcObject = stream;
+      })
+      .catch(function(){
+        errBox.textContent = currentLang==='ur'
+          ? 'Camera access nahi mil saka. Browser mein camera permission "Allow" karain aur dobara koshish karain.'
+          : 'Could not access the camera. Please allow camera permission in the browser and try again.';
+      });
+  }
+
+  function stopCameraStream(){
+    if(cameraStream){
+      cameraStream.getTracks().forEach(function(track){ track.stop(); });
+      cameraStream = null;
+    }
+  }
+
+  function closeCameraCapture(){
+    stopCameraStream();
+    document.getElementById('camera-modal').classList.remove('show');
+  }
+
+  function captureCameraShot(){
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+    if(!video.videoWidth){ return; }
+    const maxDim = 700;
+    let w = video.videoWidth, h = video.videoHeight;
+    if(w > maxDim || h > maxDim){
+      if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+      else { w = Math.round(w * maxDim / h); h = maxDim; }
+    }
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    // mirror the shot so it matches what the user sees in the live preview
+    ctx.translate(w, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+    cameraShotDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+
+    const shotImg = document.getElementById('camera-shot-preview');
+    shotImg.src = cameraShotDataUrl;
+    shotImg.style.display = 'block';
+    video.style.display = 'none';
+    document.getElementById('camera-capture-btn').style.display = 'none';
+    document.getElementById('camera-retake-btn').style.display = 'inline-flex';
+    document.getElementById('camera-use-btn').style.display = 'inline-flex';
+  }
+
+  function retakeCameraShot(){
+    cameraShotDataUrl = null;
+    const shotImg = document.getElementById('camera-shot-preview');
+    const video = document.getElementById('camera-video');
+    shotImg.style.display = 'none';
+    video.style.display = 'block';
+    document.getElementById('camera-capture-btn').style.display = 'inline-flex';
+    document.getElementById('camera-retake-btn').style.display = 'none';
+    document.getElementById('camera-use-btn').style.display = 'none';
+  }
+
+  function useCameraShot(){
+    if(!cameraShotDataUrl || !cameraTargetPreviewId) return;
+    pendingPhoto = cameraShotDataUrl;
+    const preview = document.getElementById(cameraTargetPreviewId);
+    if(preview){ preview.innerHTML = `<img src="${cameraShotDataUrl}" alt="live preview"><span class="live-badge">● LIVE</span>`; preview.classList.add('has-photo'); }
+    closeCameraCapture();
+  }
+
   function initials(name){
     return name.trim().split(/\s+/).map(w => w[0]).join('').substring(0,2).toUpperCase();
   }
@@ -446,6 +545,12 @@ function switchUserTab(which){
     if(!name || !phone || !password){ err.textContent = currentLang==='ur' ? 'Naam, phone number aur password zaroori hain.' : 'Name, phone number and password are required.'; return; }
     if(password.length < 4){ err.textContent = currentLang==='ur' ? 'Password kam az kam 4 characters ka ho.' : 'Password must be at least 4 characters.'; return; }
     if(users.some(u => u.phone === phone)){ err.textContent = currentLang==='ur' ? 'Ye phone number pehle se registered hai. Login karain.' : 'This phone number is already registered. Please login.'; return; }
+    if(!pendingPhoto){
+      err.textContent = currentLang==='ur' ? 'Live camera se picture liye baghair account register nahi ho sakta. "📷 Live Camera se Picture Lein" par click karain.' : 'You must take a live camera picture before registering. Click "📷 Take Live Camera Picture".';
+      const preview = document.getElementById('reg-photo-preview');
+      if(preview){ preview.classList.add('photo-required-shake'); setTimeout(function(){ preview.classList.remove('photo-required-shake'); }, 600); }
+      return;
+    }
 
 const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, phone, password, photo: pendingPhoto, blocked:false, approved:false, role:'user' };
     users.push(newUser);
@@ -473,6 +578,7 @@ const newUser = { serial: users.length + 1, erp: String(erpCounter++), name, pho
     document.getElementById('reg-phone').value = '';
     document.getElementById('reg-password').value = '';
     document.getElementById('reg-photo-preview').innerHTML = t('photoWord');
+    document.getElementById('reg-photo-preview').classList.remove('has-photo');
     pendingPhoto = null;
 
     // New accounts are NOT auto-logged-in — they await Admin approval.

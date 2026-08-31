@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="new-theme.css">
+<link rel="stylesheet" href="circle-theme.css">
 </head>
 <body data-lang="ur">
 
@@ -72,10 +73,12 @@
                 <input type="password" id="reg-password" data-i18n-ph="phPassword" placeholder="••••••••">
               </div>
               <div class="photo-field">
-                <div class="photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
+                <div class="photo-preview live-photo-preview" id="reg-photo-preview" data-i18n="photoWord">Photo</div>
                 <div>
-                  <button type="button" class="photo-btn" onclick="document.getElementById('reg-photo-input').click()" data-i18n="btnUploadPic">Upload Picture</button>
-                  <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)">
+                  <button type="button" class="photo-btn camera-btn" id="reg-camera-btn" onclick="openCameraCapture('reg-photo-preview')">
+                    <span class="camera-btn-dot"></span>📷 Live Camera se Picture Lein
+                  </button>
+                  <div class="photo-required-hint">* Sirf live camera picture zaroori hai — gallery se upload allow nahi.</div>
                 </div>
               </div>
               <button class="btn-primary" onclick="registerUser()" data-i18n="btnRegisterGo">Register</button>
@@ -232,11 +235,19 @@
       <div class="section" id="content-section">
         <div class="list-header"><h3 data-i18n="uploadsLog">// Content_Control.log (Admin only)</h3><span id="content-count-label">0 records</span></div>
         <p style="font-family:var(--font-m); font-size:11.5px; color:var(--dim); margin-bottom:14px;">Files aur links dono neeche ek hi list mein show hotay hain — alag "yeh link hai" jaisa label nahi lagta. Kisi bhi item ko "🔒 Premium" mark kar dain to wo lock ho jayega — user ki approval ke baad hi khulega.</p>
-        <div class="upload-drop">
+        <div class="upload-drop step-card">
           <p data-i18n="adminUploadNote">Jo bhi file yahan upload karain, wo publish karne ke baad users ki side par show hogi.</p>
+
+          <div class="step-row"><span class="step-num">1</span><label class="step-lbl">Naam</label></div>
           <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="admin-upload-name-input" placeholder="Is upload ka naam / matlab likhain (e.g. WhatsApp, PDF Notes)">
           </div>
+
+          <div class="step-row"><span class="step-num">2</span><label class="step-lbl">File Chunain</label></div>
+          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
+          <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
+
+          <div class="step-row"><span class="step-num">3</span><label class="step-lbl">Description</label></div>
           <textarea id="admin-upload-desc-input" rows="2" style="margin-bottom:10px;" placeholder="Description (optional) — ismein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-pic-input').click()">🖼 Icon Picture (optional)</button>
@@ -244,26 +255,38 @@
           </div>
           <input type="file" id="admin-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'admin-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
+
+          <div class="step-row"><span class="step-num">4</span><label class="step-lbl">Amount (Premium)</label></div>
           <label class="premium-check-row"><input type="checkbox" id="admin-upload-premium-input"> 🔒 Ye upload Premium rakhain</label>
           <div class="premium-price-row"><span>Rs</span><input type="number" id="admin-upload-price-input" min="1" value="100" placeholder="Price"></div>
-          <button type="button" class="photo-btn" onclick="document.getElementById('admin-upload-input').click()" data-i18n="btnUploadFile">+ Upload File</button>
-          <input type="file" id="admin-upload-input" style="display:none" onchange="handleAdminUpload(event)">
+          <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim); margin-top:6px;">Step 2 mein file chunte hi upload turant ho jata hai — Amount/Premium us se pehle set kar lain.</p>
         </div>
-        <div class="upload-drop">
+        <div class="upload-drop step-card">
           <p data-i18n="adminLinksNote">Yahan koi bhi link (URL) add karain — ek khud-ba-khud icon ban jayega aur users ko aapka link dikhega. Har link par uska naam neeche likha hota hai.</p>
-          <div class="link-add-row">
+
+          <div class="step-row"><span class="step-num">1</span><label class="step-lbl">Naam</label></div>
+          <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="link-name-input" data-i18n-ph="linkNamePh" placeholder="Link ka naam (e.g. YouTube, Website)">
+          </div>
+
+          <div class="step-row"><span class="step-num">2</span><label class="step-lbl">Link (URL)</label></div>
+          <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="link-url-input" data-i18n-ph="linkUrlPh" placeholder="https://...">
           </div>
-          <textarea id="link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+
+          <div class="step-row"><span class="step-num">3</span><label class="step-lbl">Description</label></div>
+          <textarea id="link-desc-input" rows="2" style="margin:0 0 10px;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+
+          <div class="step-row"><span class="step-num">4</span><label class="step-lbl">Amount (Premium)</label></div>
           <label class="premium-check-row"><input type="checkbox" id="link-premium-input"> 🔒 Ye link Premium rakhain</label>
           <div class="premium-price-row"><span>Rs</span><input type="number" id="link-price-input" min="1" value="100" placeholder="Price"></div>
-          <div class="link-add-row" style="margin-bottom:10px;">
+
+          <div class="link-add-row" style="margin-top:12px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="link-pic-status"></span>
-            <button type="button" class="photo-btn" onclick="addAdminLink()" data-i18n="btnAddLink">+ Add Link</button>
           </div>
           <input type="file" id="link-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'link-pic-status')">
+          <button type="button" class="photo-btn btn-final-add" onclick="addAdminLink()" data-i18n="btnAddLink">+ Add Link</button>
         </div>
         <div id="admin-content-area"></div>
       </div>
@@ -453,11 +476,19 @@
 
       <div class="section" id="mod-upload-section">
         <div class="list-header"><h3>// My Uploads (needs Admin approval)</h3><span id="mod-uploads-count-label">0 records</span></div>
-        <div class="upload-drop">
+        <div class="upload-drop step-card">
           <p>Jo bhi file yahan upload karain, wo pehle Admin ki approval ke liye jayegi — approve hone ke baad hi publish ho sakegi.</p>
+
+          <div class="step-row"><span class="step-num">1</span><label class="step-lbl">Naam</label></div>
           <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="mod-upload-name-input" placeholder="Is upload ka naam / matlab likhain (e.g. WhatsApp, PDF Notes)">
           </div>
+
+          <div class="step-row"><span class="step-num">2</span><label class="step-lbl">File Chunain</label></div>
+          <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-input').click()">+ Upload File</button>
+          <input type="file" id="mod-upload-input" style="display:none" onchange="handleModeratorUpload(event)">
+
+          <div class="step-row"><span class="step-num">3</span><label class="step-lbl">Description</label></div>
           <textarea id="mod-upload-desc-input" rows="2" style="margin-bottom:10px;" placeholder="Description (optional) — ismein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
           <div class="link-add-row" style="margin-bottom:10px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-pic-input').click()">🖼 Icon Picture (optional)</button>
@@ -465,27 +496,38 @@
           </div>
           <input type="file" id="mod-upload-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-upload-pic-status')">
           <p style="font-family:var(--font-m); font-size:10.5px; color:var(--dim);">Picture na dain to naam ke hisab se khud-ba-khud "Anas Technical World" branded AI icon ban jayega.</p>
+
+          <div class="step-row"><span class="step-num">4</span><label class="step-lbl">Amount (Premium)</label></div>
           <label class="premium-check-row"><input type="checkbox" id="mod-upload-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
           <div class="premium-price-row"><span>Rs</span><input type="number" id="mod-upload-price-input" min="1" value="100" placeholder="Price"></div>
-          <button type="button" class="photo-btn" onclick="document.getElementById('mod-upload-input').click()">+ Upload File</button>
-          <input type="file" id="mod-upload-input" style="display:none" onchange="handleModeratorUpload(event)">
         </div>
 
-        <div class="upload-drop" style="margin-top:14px;">
+        <div class="upload-drop step-card" style="margin-top:14px;">
           <p>Yahan koi bhi link (URL) add karain — wo bhi pehle Admin approval ke liye jayega.</p>
-          <div class="link-add-row">
+
+          <div class="step-row"><span class="step-num">1</span><label class="step-lbl">Naam</label></div>
+          <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="mod-link-name-input" placeholder="Link ka naam (e.g. YouTube, Website)">
+          </div>
+
+          <div class="step-row"><span class="step-num">2</span><label class="step-lbl">Link (URL)</label></div>
+          <div class="link-add-row" style="margin-bottom:10px;">
             <input type="text" id="mod-link-url-input" placeholder="https://...">
           </div>
-          <textarea id="mod-link-desc-input" rows="2" style="margin:10px 0;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+
+          <div class="step-row"><span class="step-num">3</span><label class="step-lbl">Description</label></div>
+          <textarea id="mod-link-desc-input" rows="2" style="margin:0 0 10px;" placeholder="Description (optional) — is mein diye gaye links khud-ba-khud clickable ban jayenge"></textarea>
+
+          <div class="step-row"><span class="step-num">4</span><label class="step-lbl">Amount (Premium)</label></div>
           <label class="premium-check-row"><input type="checkbox" id="mod-link-premium-input"> 🔒 Premium (approval ke baad hi khulega)</label>
           <div class="premium-price-row"><span>Rs</span><input type="number" id="mod-link-price-input" min="1" value="100" placeholder="Price"></div>
-          <div class="link-add-row" style="margin-bottom:10px;">
+
+          <div class="link-add-row" style="margin-top:12px;">
             <button type="button" class="photo-btn" onclick="document.getElementById('mod-link-pic-input').click()">🖼 Icon Picture (optional)</button>
             <span class="success-msg" id="mod-link-pic-status"></span>
-            <button type="button" class="photo-btn" onclick="submitModeratorLink()">+ Add Link</button>
           </div>
           <input type="file" id="mod-link-pic-input" accept="image/*" style="display:none" onchange="previewCustomLogo(event,'mod-link-pic-status')">
+          <button type="button" class="photo-btn btn-final-add" onclick="submitModeratorLink()">+ Add Link</button>
         </div>
 
         <div id="mod-own-submissions-area" style="margin-top:14px;"></div>
@@ -493,6 +535,26 @@
     </div>
   </div>
 
+</div>
+
+<!-- ============ LIVE CAMERA CAPTURE MODAL ============ -->
+<div class="modal-overlay" id="camera-modal">
+  <div class="modal-box camera-modal-box">
+    <h4>📷 Live Camera — Picture Lein</h4>
+    <div class="camera-stage" id="camera-stage">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <img id="camera-shot-preview" style="display:none;">
+      <div class="camera-ring"></div>
+    </div>
+    <canvas id="camera-canvas" style="display:none;"></canvas>
+    <div class="camera-error" id="camera-error"></div>
+    <div class="modal-actions camera-actions">
+      <button type="button" class="btn-primary" id="camera-capture-btn" onclick="captureCameraShot()">📸 Capture</button>
+      <button type="button" class="btn-primary" id="camera-retake-btn" style="display:none;" onclick="retakeCameraShot()">↺ Retake</button>
+      <button type="button" class="btn-primary" id="camera-use-btn" style="display:none;" onclick="useCameraShot()">✔ Use This Picture</button>
+      <button type="button" class="btn-primary ghost" onclick="closeCameraCapture()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============ FILE PREVIEW MODAL ============ -->
