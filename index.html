@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anas Technical World // Access Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="theme-3d.css">
+<link rel="stylesheet" href="new-theme.css">
 </head>
 <body data-lang="ur">
 
@@ -313,6 +313,25 @@
             <button class="btn-primary ghost" style="margin-top:8px;" onclick="clearAnnouncement()" data-i18n="btnClearAnn">Clear Announcement</button>
             <div class="success-msg" id="ann-success"></div>
           </div>
+          <div class="settings-card" id="payment-settings-card">
+            <h4>// Payment Method (Premium Content)</h4>
+            <div class="note">Yahan se aap premium content ke liye payment method tabdeel kar sakte hain — JazzCash, Easypaisa, Bank Transfer, ya koi bhi naam. Users ko yahi number/naam/fee premium payment screen par dikhega.</div>
+            <div class="field">
+              <label>Payment Method Name</label>
+              <select id="payment-method-input">
+                <option value="JazzCash">JazzCash</option>
+                <option value="Easypaisa">Easypaisa</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="SadaPay">SadaPay</option>
+                <option value="NayaPay">NayaPay</option>
+              </select>
+            </div>
+            <div class="field"><label>Account Number / IBAN</label><input type="text" id="payment-number-input" placeholder="03074499097"></div>
+            <div class="field"><label>Account Holder Name</label><input type="text" id="payment-name-input" placeholder="e.g. Muhammad Anas Ishaq"></div>
+            <div class="field"><label>Default Fee (Rs)</label><input type="number" id="payment-fee-input" placeholder="100" min="0"></div>
+            <button class="btn-primary" onclick="savePaymentSettings()">Save Payment Method</button>
+            <div class="success-msg" id="payment-settings-status"></div>
+          </div>
           <div class="settings-card" id="cloud-sync-card">
             <h4>// Cloud Sync (Firebase) — required for real multi-device sync</h4>
             <div class="note">Har user ka data ab tak sirf usi browser mein save hota tha. Ye connect karne ke baad — total users, uploads, live chat, online/offline status — sab devices ke darmiyan real-time sync ho jayega. Free Firebase project banain (console.firebase.google.com), Firestore Database + Realtime Database enable karain, phir "Project settings → General → Your apps → SDK config" se ye values yahan paste karain.</div>
@@ -546,6 +565,5 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="script.js"></script>
 <script src="firebase-sync.js"></script>
-<script src="theme-3d.js"></script>
 </body>
 </html>

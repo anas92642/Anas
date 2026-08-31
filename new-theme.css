@@ -1,0 +1,272 @@
+/* =====================================================================
+   ANAS TECHNICAL WORLD — "DASHBOARD" THEME
+   Light, clean, colorful admin-dashboard look (teal header, soft white
+   cards, rounded corners, pastel stat tiles) — replaces the old dark
+   neon/hacker theme. Loaded AFTER style.css, so it overrides colors,
+   shapes and effects while reusing all existing markup/classes.
+   ===================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+:root{
+  /* ---- base palette (light) ---- */
+  --bg:#eef2f4;
+  --bg2:#ffffff;
+  --panel:#ffffff;
+  --panel-2:#ffffff;
+
+  /* ---- accent palette (dashboard) ---- */
+  --cyan:#2f7a86;        /* teal — primary accent, replaces old neon cyan */
+  --cyan-dim:#5c8a92;
+  --green:#3aa876;
+  --amber:#e2b93b;
+  --danger:#e0507a;
+  --whatsapp:#25d366;
+
+  --text:#2b3a42;
+  --dim:#8a99a1;
+  --dim-2:#c3ced2;
+
+  --font-h:'Poppins', sans-serif;
+  --font-m:'Poppins', sans-serif;
+  --font-ur:'Noto Nastaliq Urdu', serif;
+
+  --radius-lg:18px;
+  --radius-md:12px;
+  --shadow-card:0 10px 30px -12px rgba(40,60,70,0.15), 0 2px 8px -2px rgba(40,60,70,0.08);
+}
+
+/* ---------- kill the old dark hacker backdrop ---------- */
+.bg-photo, .bg-grid, .bg-glow, .scanline, #theme3d-canvas{ display:none !important; }
+
+body{
+  background:var(--bg) !important;
+  color:var(--text) !important;
+  font-family:var(--font-m);
+}
+body[data-lang="ur"] .ur-font{ font-family:var(--font-ur); }
+
+::selection{ background:var(--cyan); color:#fff; }
+
+/* thin, light scrollbars to match */
+::-webkit-scrollbar{ width:8px; height:8px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:#c9d4d8; border-radius:8px; }
+
+/* ---------- top brand strip -> teal dashboard header ---------- */
+.brandmark{
+  background:linear-gradient(90deg, #2c6975, #35808d) !important;
+  color:#fff !important;
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-card);
+  border:none !important;
+}
+.brandmark span, .brandmark span b{ color:#fff !important; }
+.brandmark .led{ background:#7fe0c4 !important; box-shadow:0 0 10px 2px rgba(127,224,196,0.8) !important; }
+
+.lang-toggle button{
+  background:#fff; color:var(--cyan); border:1px solid #dbe4e7;
+}
+.lang-toggle button.active{ background:var(--cyan) !important; color:#fff !important; }
+
+.announcement{
+  background:#fff4d6; color:#8a6d1c; border:1px solid #f3e2a4; border-radius:var(--radius-md);
+}
+
+/* ---------- login / access card ---------- */
+.card-shell{
+  background:#fff !important;
+  border:1px solid #e4eaec !important;
+  border-radius:var(--radius-lg) !important;
+  box-shadow:var(--shadow-card) !important;
+}
+.card-shell .back{ color:var(--dim) !important; }
+.card-shell .back:hover{ color:var(--cyan) !important; }
+
+.card-header .badge-dot{
+  background:linear-gradient(160deg, var(--cyan), #235a64) !important;
+  border:none !important; box-shadow:0 8px 18px -6px rgba(47,122,134,0.6) !important;
+  color:#fff !important; border-radius:14px !important;
+}
+.card-header h2{ color:var(--text) !important; }
+.card-header p{ color:var(--dim) !important; }
+
+.login-hero{
+  border:3px solid #fff !important;
+  box-shadow:0 0 0 3px var(--cyan), var(--shadow-card) !important;
+  background:#eef2f4 !important;
+}
+
+.role-tabs{ background:#f1f5f6 !important; border:1px solid #e4eaec !important; border-radius:12px !important; }
+.role-tabs button{ color:var(--dim) !important; }
+.role-tabs button.active{ background:var(--cyan) !important; color:#fff !important; box-shadow:0 6px 16px -6px rgba(47,122,134,0.6) !important; }
+
+.tabs button{ color:var(--dim) !important; }
+.tabs button.active{ background:var(--cyan) !important; color:#fff !important; }
+
+/* ---------- fields / inputs ---------- */
+.field label{ color:var(--cyan-dim) !important; }
+.field input[type=text], .field input[type=password], .field input[type=tel],
+.field input[type=number], .field input[type=email], .field select{
+  background:#f5f8f9 !important; border:1px solid #dde5e8 !important; color:var(--text) !important;
+  border-radius:10px !important;
+}
+.field input:focus{
+  border-color:var(--cyan) !important; background:#fff !important;
+  box-shadow:0 0 0 3px rgba(47,122,134,0.12) !important;
+}
+.field input::placeholder{ color:var(--dim-2) !important; }
+
+.photo-preview{ background:#f1f5f6 !important; border:1px dashed #c9d4d8 !important; color:var(--dim) !important; }
+.photo-btn{
+  background:#eaf4f4 !important; border:1px solid #bfe0e0 !important; color:var(--cyan) !important;
+}
+.photo-btn:hover{ background:#dff0f0 !important; box-shadow:none !important; }
+
+/* ---------- buttons ---------- */
+.btn-primary{
+  background:linear-gradient(180deg, #35808d, #2c6975) !important;
+  border:none !important; color:#fff !important;
+  border-radius:12px !important; box-shadow:0 10px 22px -10px rgba(47,122,134,0.55) !important;
+  text-transform:none !important; letter-spacing:0 !important; font-weight:600 !important;
+}
+.btn-primary:hover{ transform:translateY(-1px); box-shadow:0 14px 26px -10px rgba(47,122,134,0.65) !important; background:linear-gradient(180deg, #3a8c9a, #2c6975) !important; }
+.btn-primary.ghost{ background:transparent !important; border:1px solid var(--danger) !important; color:var(--danger) !important; box-shadow:none !important; }
+
+.btn-outline-danger{ background:#fdeef2 !important; color:var(--danger) !important; border:1px solid #f3c9d5 !important; text-transform:none !important; border-radius:8px !important; }
+.btn-outline-green{ background:#eaf7f0 !important; color:var(--green) !important; border:1px solid #bfe6d2 !important; text-transform:none !important; border-radius:8px !important; }
+.btn-outline-amber{ background:#fdf6e3 !important; color:#a3852a !important; border:1px solid #f0e0a8 !important; text-transform:none !important; border-radius:8px !important; }
+.btn-whatsapp{ background:#e7faf0 !important; border:1px solid #b9ecce !important; color:#1fa855 !important; text-transform:none !important; border-radius:12px !important; }
+.btn-whatsapp:hover{ background:#d9f5e6 !important; box-shadow:none !important; }
+
+.error-msg{ color:var(--danger) !important; }
+.success-msg{ color:var(--green) !important; }
+.hint{ color:var(--dim) !important; }
+
+/* ---------- loading screen ---------- */
+.boot-lines{ color:var(--green) !important; }
+.progress-track{ background:#e4eaec !important; }
+.progress-fill{ background:linear-gradient(90deg, var(--cyan), var(--green)) !important; }
+
+/* ---------- topbar (dashboard header inside each screen) ---------- */
+.topbar{
+  background:#fff; border:1px solid #e4eaec; border-radius:var(--radius-md);
+  padding:14px 18px; box-shadow:var(--shadow-card);
+}
+.topbar .who .avatar{ background:#eaf4f4 !important; color:var(--cyan) !important; border:2px solid #fff; box-shadow:0 0 0 2px var(--cyan); }
+.topbar .who .name{ color:var(--text) !important; }
+.topbar .who .role{ color:var(--dim) !important; }
+.logout-btn{ background:#fdeef2 !important; color:var(--danger) !important; border:1px solid #f3c9d5 !important; }
+
+.notif-bell{ background:#eaf4f4 !important; border:1px solid #cfe6e6 !important; color:var(--cyan) !important; }
+.notif-bell:hover{ background:#dff0f0 !important; box-shadow:none !important; }
+.notif-badge{ background:var(--danger) !important; }
+.notif-panel{ background:#fff !important; border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important; border-radius:var(--radius-md) !important; }
+.notif-panel-header{ background:#fff !important; color:var(--cyan-dim) !important; border-bottom:1px solid #eef2f4 !important; }
+.notif-item{ border-bottom:1px solid #f1f5f6 !important; }
+.notif-item.unread{ background:#f2fbfb !important; }
+.notif-item .notif-text{ color:var(--text) !important; }
+.notif-item .notif-time{ color:var(--dim) !important; }
+
+/* ---------- ID / profile card ---------- */
+.id-card{
+  background:linear-gradient(165deg, #ffffff, #f4f9f9) !important;
+  border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important;
+}
+.id-card .cardscan{ display:none !important; }
+.id-card .head{ color:var(--cyan-dim) !important; }
+.id-card .photo{ border:2px solid var(--cyan) !important; box-shadow:none !important; background:#eaf4f4 !important; color:var(--cyan) !important; }
+.id-card .name{ color:var(--text) !important; }
+.id-card .role2{ color:var(--dim) !important; }
+.id-card .divider{ background:linear-gradient(90deg, transparent, #dbe4e7, transparent) !important; }
+.id-card .row{ color:var(--dim) !important; }
+.id-card .row span:last-child{ color:var(--text) !important; }
+.id-card .erp{ color:var(--green) !important; }
+.id-card .barcode{ background:repeating-linear-gradient(90deg, var(--text) 0 2px, transparent 2px 5px) !important; opacity:.35 !important; }
+.id-card .statusline{ color:var(--green) !important; }
+
+/* ---------- welcome hero ---------- */
+.welcome-hero .eyebrow{ color:var(--cyan-dim) !important; }
+.welcome-hero h1{ color:var(--text) !important; }
+.welcome-hero p{ color:var(--dim) !important; }
+
+/* ---------- STAT TILES: colorful dashboard cards ---------- */
+.stats-row{ gap:16px; }
+.stat{
+  border-radius:var(--radius-lg) !important; border:none !important;
+  box-shadow:var(--shadow-card) !important; padding:20px 16px !important;
+  background:linear-gradient(150deg, #eef7f2, #dcefe3) !important;
+}
+.stat .num{ color:#256a4c !important; font-size:24px !important; font-weight:800; }
+.stat .lbl{ color:#4f7d68 !important; }
+.stat:nth-child(2){ background:linear-gradient(150deg, #fff7e0, #f7ecc0) !important; }
+.stat:nth-child(2) .num{ color:#8a6d1c !important; }
+.stat:nth-child(2) .lbl{ color:#9c854a !important; }
+.stat:nth-child(3){ background:linear-gradient(150deg, #e9f3fb, #d3e7f7) !important; }
+.stat:nth-child(3) .num{ color:#2c6081 !important; }
+.stat:nth-child(3) .lbl{ color:#4f7a97 !important; }
+.stat:nth-child(4){ background:linear-gradient(150deg, #fdeaf0, #fad3e0) !important; }
+.stat:nth-child(4) .num{ color:#a12958 !important; }
+.stat:nth-child(4) .lbl{ color:#b45c80 !important; }
+.stat:nth-child(5){ background:linear-gradient(150deg, #f1ecfb, #e0d4f7) !important; }
+.stat:nth-child(5) .num{ color:#5b3aa1 !important; }
+.stat:nth-child(5) .lbl{ color:#7c62ad !important; }
+
+/* ---------- sections / lists ---------- */
+.list-header h3{ color:var(--text) !important; }
+.list-header span{ color:var(--dim) !important; }
+.section{ background:#fff; border:1px solid #e4eaec; border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow-card); }
+
+.user-row, .upload-card, .app-icon-wrap, .moderator-request-row{
+  background:#fbfdfd !important; border:1px solid #e9eef0 !important; border-radius:var(--radius-md) !important;
+  box-shadow:none !important;
+}
+.upload-thumb{ background:#eef2f4 !important; }
+.upload-name{ color:var(--text) !important; }
+.upload-owner{ color:var(--dim) !important; }
+.badge-published{ background:#e7f7ef !important; color:#22935f !important; }
+.badge-pending{ background:#fff6df !important; color:#a3852a !important; }
+.badge-unpublished, .badge-awaiting{ background:#fdeef2 !important; color:var(--danger) !important; }
+.empty-note{ color:var(--dim) !important; }
+.upload-drop{ background:#f5f8f9 !important; border:2px dashed #cfdadd !important; }
+
+.brand-mark{ color:var(--cyan) !important; }
+.premium-tag{ background:#fff6df !important; color:#a3852a !important; }
+.lock-corner{ background:var(--amber) !important; color:#fff !important; }
+.jazzcash-box{ background:#f2fbfb !important; border:1px solid #cfe6e6 !important; color:var(--text) !important; }
+.premium-req-shot{ border:1px solid #e4eaec !important; }
+
+/* ---------- settings cards ---------- */
+.settings-card{
+  background:#fff !important; border:1px solid #e4eaec !important; border-radius:var(--radius-lg) !important;
+  box-shadow:var(--shadow-card) !important;
+}
+.settings-card h4{ color:var(--cyan) !important; }
+.settings-card .note{ color:var(--dim) !important; }
+.contact-line{ color:var(--dim) !important; }
+
+/* ---------- modals ---------- */
+.modal-overlay{ background:rgba(20,35,40,0.45) !important; }
+.modal-box{
+  background:#fff !important; border:1px solid #e4eaec !important; box-shadow:0 30px 60px -20px rgba(20,35,40,0.35) !important;
+  border-radius:var(--radius-lg) !important; color:var(--text) !important;
+}
+
+/* ---------- voice assistant / chat ---------- */
+.mic-btn{ background:var(--cyan) !important; color:#fff !important; box-shadow:0 10px 22px -10px rgba(47,122,134,0.55) !important; }
+.assistant-panel{ background:#fff !important; border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important; }
+.assistant-log{ color:var(--text) !important; }
+.assistant-hint{ color:var(--dim) !important; }
+.ai-command-box{ background:#f5f8f9 !important; color:var(--dim) !important; }
+
+.chat-btn{ background:var(--cyan) !important; color:#fff !important; box-shadow:0 10px 22px -10px rgba(47,122,134,0.55) !important; }
+.chat-panel{ background:#fff !important; border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important; }
+.chat-log{ background:#f7fafa !important; }
+.chat-bubble{ border-radius:14px !important; }
+.thread-row{ border-bottom:1px solid #f1f5f6 !important; }
+.thread-row:hover{ background:#f7fafa !important; }
+.admin-chat-box{ background:#f5f8f9 !important; }
+
+/* ---------- misc ---------- */
+a{ color:var(--cyan); }
+h1, h2, h3, h4{ font-family:var(--font-h); }

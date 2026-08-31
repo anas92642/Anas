@@ -18,9 +18,49 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   // itemId, itemName, userPhone, userName, screenshot(dataUrl), status:
   // 'pending'|'approved'|'rejected', requestedAt}
   let premiumRequests = [];
-  const PREMIUM_FEE = 100;
-  const PREMIUM_JAZZCASH_NUMBER = '03074499097';
-  const PREMIUM_JAZZCASH_NAME = 'Muhammad Anas Ishaq';
+  // Default premium fee is now just a fallback — the real, editable values
+  // live in paymentSettings below (Admin → Settings → Payment Method).
+  const PREMIUM_FEE_DEFAULT = 100;
+  function getPaymentConfig(){
+    return {
+      method: localStorage.getItem('atw_payment_method') || 'JazzCash',
+      number: localStorage.getItem('atw_payment_number') || '03074499097',
+      name: localStorage.getItem('atw_payment_name') || 'Muhammad Anas Ishaq',
+      fee: Number(localStorage.getItem('atw_payment_fee')) || PREMIUM_FEE_DEFAULT
+    };
+  }
+  // kept as a getter-like reference so existing code that reads
+  // PREMIUM_FEE still works, but always reflects the latest saved fee.
+  Object.defineProperty(window, 'PREMIUM_FEE', { get: () => getPaymentConfig().fee });
+
+  function initPaymentSettings(){
+    const cfg = getPaymentConfig();
+    const methodEl = document.getElementById('payment-method-input');
+    const numEl = document.getElementById('payment-number-input');
+    const nameEl = document.getElementById('payment-name-input');
+    const feeEl = document.getElementById('payment-fee-input');
+    if(methodEl) methodEl.value = cfg.method;
+    if(numEl) numEl.value = cfg.number;
+    if(nameEl) nameEl.value = cfg.name;
+    if(feeEl) feeEl.value = cfg.fee;
+    const statusEl = document.getElementById('payment-settings-status');
+    if(statusEl) statusEl.textContent = currentLang==='ur'
+      ? `Filhaal: ${cfg.method} · ${cfg.number} · ${cfg.name} · Rs ${cfg.fee}`
+      : `Currently: ${cfg.method} · ${cfg.number} · ${cfg.name} · Rs ${cfg.fee}`;
+  }
+
+  function savePaymentSettings(){
+    const method = (document.getElementById('payment-method-input').value || 'JazzCash').trim();
+    const number = (document.getElementById('payment-number-input').value || '').trim();
+    const name = (document.getElementById('payment-name-input').value || '').trim();
+    const fee = Number(document.getElementById('payment-fee-input').value) || PREMIUM_FEE_DEFAULT;
+    localStorage.setItem('atw_payment_method', method);
+    localStorage.setItem('atw_payment_number', number);
+    localStorage.setItem('atw_payment_name', name);
+    localStorage.setItem('atw_payment_fee', String(fee));
+    if(window.fbSavePaymentSettings) window.fbSavePaymentSettings({ method, number, name, fee });
+    initPaymentSettings();
+  }
   let erpCounter = 20000 + Math.floor(Math.random() * 70000);
   let uploadIdCounter = 1;
   let linkIdCounter = 1;
@@ -1550,7 +1590,8 @@ function toggleBlock(phone){
   }
 
   function premiumInstructionsHTML(existing, item){
-    const fee = (item && item.price) ? item.price : PREMIUM_FEE;
+    const paymentCfg = getPaymentConfig();
+    const fee = (item && item.price) ? item.price : paymentCfg.fee;
     const rejectedNote = existing && existing.status === 'rejected'
       ? (currentLang==='ur'
           ? `<p style="color:var(--danger); margin-bottom:8px;">Aap ki pichli request reject ho gayi thi — sahi screenshot ke sath dobara try karain.</p>`
@@ -1566,8 +1607,8 @@ function toggleBlock(phone){
         ? 'Ye chez premium hai, iski fee <b>Rs ' + fee + '</b> hai.'
         : 'This item is premium — the fee is <b>Rs ' + fee + '</b>.'}</p>
       <div class="jazzcash-box">
-        <div>JazzCash: <b>${PREMIUM_JAZZCASH_NUMBER}</b></div>
-        <div>${currentLang==='ur' ? 'Naam' : 'Name'}: <b>${PREMIUM_JAZZCASH_NAME}</b></div>
+        <div>${paymentCfg.method}: <b>${paymentCfg.number}</b></div>
+        <div>${currentLang==='ur' ? 'Naam' : 'Name'}: <b>${paymentCfg.name}</b></div>
       </div>
       <p>${currentLang==='ur'
         ? 'Rs ' + fee + ' is number par bhejne ke baad, neeche apna payment screenshot upload karain.'
@@ -2347,6 +2388,7 @@ function closeModal(){
     const savedKey = localStorage.getItem('atw_gemini_key');
     if(savedKey) document.getElementById('gemini-key-input').value = savedKey;
     initEmailJs();
+    initPaymentSettings();
 
     // If this browser had an active session (admin or a logged-in user),
     // resume it instead of showing the login/register portal again.
