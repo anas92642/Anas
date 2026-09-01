@@ -8,6 +8,18 @@
   const SESSION_KEY = 'atw_session_v1'; // keeps the user logged in across page refresh / tab reload
   const WHATSAPP_NUMBER = '923074499097';
 
+  // -----------------------------------------------------------------
+  // APP VERSION + FORCE-LOGOUT — whenever this file is redeployed with
+  // a bumped APP_VERSION, or Admin clicks "Restart App", every browser
+  // that currently has a session gets logged off automatically. See
+  // checkAppVersion() / applyForceLogoutIfNeeded() / restartApp() below.
+  // Bump APP_VERSION on every real update you publish to the host.
+  // -----------------------------------------------------------------
+  const APP_VERSION = '2.1.0';
+  const APP_VERSION_KEY = 'atw_app_version_v1';
+  const EPOCH_SEEN_KEY = 'atw_force_logout_seen_v1';
+  const IDLE_LOGOUT_MS = 2 * 60 * 1000; // 2 minutes of no activity = auto logout
+
 let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let users = [];        // {serial, erp, name, phone, password, photo, blocked}
   let uploads = [];      // {id, fileName, fileType, dataUrl, status, uploadedAt, premium}
@@ -68,6 +80,8 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let pendingPhoto = null;
   let currentUser = null;
   let currentRole = null;    // 'admin' | 'user'
+  let forceLogoutEpoch = 0;  // bumped by restartApp() / a new deploy -> logs everyone off
+  let lastActivityTime = Date.now(); // for the 2-minute idle auto-logout
   let siteAnnouncement = '';
   let currentLang = 'ur';
   let openThreadPhone = null;
@@ -75,7 +89,7 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let adminNotifications = [];     // admin-only feed (new registration requests, new messages)
 
 function collectState(){
-    return { ADMIN, users, uploads, links, chatThreads, premiumRequests, erpCounter, uploadIdCounter, linkIdCounter, premiumReqIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications };
+    return { ADMIN, users, uploads, links, chatThreads, premiumRequests, erpCounter, uploadIdCounter, linkIdCounter, premiumReqIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications, forceLogoutEpoch };
   }
 
   function saveState(){
@@ -102,6 +116,7 @@ function applyState(data){
     currentLang = data.currentLang || 'ur';
     broadcastNotifications = data.broadcastNotifications || [];
     adminNotifications = data.adminNotifications || [];
+    forceLogoutEpoch = typeof data.forceLogoutEpoch === 'number' ? data.forceLogoutEpoch : (forceLogoutEpoch || 0);
   }
 
   function loadState(){
@@ -158,6 +173,132 @@ if(saved.role === 'moderator'){
     localStorage.removeItem(SESSION_KEY);
     return false;
   }
+
+  // -----------------------------------------------------------------
+  // SESSION TOAST — small bottom-center notice used for auto-logout /
+  // restart / update messages, instead of a jarring alert() popup.
+  // -----------------------------------------------------------------
+  function showSessionToast(msg){
+    let el = document.getElementById('session-toast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'session-toast';
+      el.className = 'session-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => el.classList.remove('show'), 5000);
+  }
+
+  // -----------------------------------------------------------------
+  // APP VERSION CHECK — if this browser last saw an older APP_VERSION
+  // (i.e. the site's files were updated/redeployed since its last
+  // visit), any existing session on this device is cleared so the
+  // person has to log in again on the fresh version.
+  // -----------------------------------------------------------------
+  function checkAppVersion(){
+    let stored = null;
+    try{ stored = localStorage.getItem(APP_VERSION_KEY); }catch(e){}
+    if(stored && stored !== APP_VERSION){
+      try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+      currentUser = null;
+      currentRole = null;
+    }
+    try{ localStorage.setItem(APP_VERSION_KEY, APP_VERSION); }catch(e){}
+  }
+
+  // -----------------------------------------------------------------
+  // FORCE LOGOUT (via forceLogoutEpoch) — used by restartApp() and by
+  // the Firebase meta listener (firebase-sync.js) so that bumping the
+  // epoch logs every device off: same-device other tabs pick it up via
+  // the 'storage' event below; other devices pick it up in real time
+  // through Firebase (if Cloud Sync is connected), or the next time
+  // they open/refresh the site (local-only mode).
+  // -----------------------------------------------------------------
+  function applyForceLogoutIfNeeded(){
+    let seen = 0;
+    try{ seen = Number(localStorage.getItem(EPOCH_SEEN_KEY)) || 0; }catch(e){}
+    if(forceLogoutEpoch <= seen) return;
+    try{ localStorage.setItem(EPOCH_SEEN_KEY, String(forceLogoutEpoch)); }catch(e){}
+    let hadSession = !!currentRole;
+    try{ if(localStorage.getItem(SESSION_KEY)) hadSession = true; }catch(e){}
+    if(!hadSession) return;
+    currentUser = null;
+    currentRole = null;
+    openThreadPhone = null;
+    try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+    if(document.readyState !== 'loading'){
+      showSessionToast(currentLang==='ur'
+        ? 'App restart/update hui hai — dobara login karain.'
+        : 'The app was restarted/updated — please log in again.');
+      if(typeof switchRoleTab === 'function') switchRoleTab('user');
+      if(typeof showScreen === 'function') showScreen('screen-portal');
+    }
+  }
+
+  // Picks up a forceLogoutEpoch bump made in ANOTHER TAB of the same
+  // browser (e.g. Admin clicked Restart in one tab while logged in on
+  // another). Firebase (if connected) covers OTHER devices in real time.
+  window.addEventListener('storage', function(e){
+    if(e.key !== STORAGE_KEY || !e.newValue) return;
+    try{
+      const data = JSON.parse(e.newValue);
+      if(typeof data.forceLogoutEpoch === 'number' && data.forceLogoutEpoch > forceLogoutEpoch){
+        forceLogoutEpoch = data.forceLogoutEpoch;
+        applyForceLogoutIfNeeded();
+      }
+    }catch(err){ /* ignore malformed value */ }
+  });
+
+  // -----------------------------------------------------------------
+  // ADMIN "RESTART APP" — bumps forceLogoutEpoch, saves it locally
+  // (other tabs on this device pick it up instantly), pushes it to
+  // Firebase if Cloud Sync is connected (other devices pick it up
+  // instantly too), then logs this browser off as well.
+  // -----------------------------------------------------------------
+  function restartApp(){
+    const ok = confirm(currentLang==='ur'
+      ? 'Pakka? Is se abhi jahan bhi login hai — aap sameet — sab log off ho jayenge.'
+      : 'Are you sure? This will log everyone off everywhere right now, including you.');
+    if(!ok) return;
+    forceLogoutEpoch = (forceLogoutEpoch || 0) + 1;
+    saveState();
+    try{ localStorage.setItem(EPOCH_SEEN_KEY, String(forceLogoutEpoch)); }catch(e){}
+    if(window.fbSaveMeta) window.fbSaveMeta();
+    const statusEl = document.getElementById('restart-app-status');
+    if(statusEl) statusEl.textContent = currentLang==='ur' ? 'Restart signal bhej diya gaya...' : 'Restart signal sent...';
+    setTimeout(() => {
+      currentUser = null;
+      currentRole = null;
+      openThreadPhone = null;
+      try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+      showSessionToast(currentLang==='ur' ? 'App restart ho gayi — dobara login karain.' : 'App restarted — please log in again.');
+      switchRoleTab('user');
+      showScreen('screen-portal');
+    }, 500);
+  }
+
+  // -----------------------------------------------------------------
+  // 2-MINUTE IDLE AUTO-LOGOUT — while someone is logged in (any role)
+  // and this tab sees no mouse/keyboard/touch/scroll activity for 2
+  // minutes, they are logged off automatically.
+  // -----------------------------------------------------------------
+  function markActivity(){ lastActivityTime = Date.now(); }
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(function(evt){
+    window.addEventListener(evt, markActivity, { passive:true });
+  });
+  setInterval(function(){
+    if(currentRole && (Date.now() - lastActivityTime) > IDLE_LOGOUT_MS){
+      showSessionToast(currentLang==='ur'
+        ? '2 minute tak koi activity nahi hui — automatically log off kar diya gaya.'
+        : 'No activity for 2 minutes — you have been logged off automatically.');
+      logout();
+    }
+  }, 5000);
 
   function exportBackup(){
     const blob = new Blob([JSON.stringify(collectState(), null, 2)], {type:'application/json'});
@@ -622,6 +763,7 @@ function userLogin(){
   function beginLogin(role, user){
     currentRole = role;
     currentUser = user;
+    lastActivityTime = Date.now(); // reset the 2-minute idle clock on every fresh login
     saveSession();
     showScreen('screen-loading');
 
@@ -2389,6 +2531,8 @@ function closeModal(){
 
   window.addEventListener('DOMContentLoaded', () => {
     loadState();
+    checkAppVersion();          // new deploy since last visit? -> clears any stale session
+    applyForceLogoutIfNeeded(); // admin restarted the app since last visit? -> clears session
     setLanguage(currentLang);
     applyAnnouncement();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;

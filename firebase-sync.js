@@ -202,6 +202,12 @@ if(typeof currentRole !== 'undefined'){
       broadcastNotifications = d.broadcastNotifications;
       if(typeof renderNotifBell === 'function') renderNotifBell();
     }
+    // Admin clicked "Restart App" (on any device) — force-logout everyone
+    // whose forceLogoutEpoch is behind this one, in real time.
+    if(typeof d.forceLogoutEpoch === 'number' && typeof forceLogoutEpoch !== 'undefined'){
+      if(d.forceLogoutEpoch > forceLogoutEpoch) forceLogoutEpoch = d.forceLogoutEpoch;
+      if(typeof applyForceLogoutIfNeeded === 'function') applyForceLogoutIfNeeded();
+    }
     if(typeof saveState === 'function') saveState();
   }, err => showFbError('meta', err));
 
@@ -324,7 +330,7 @@ function fbDeleteUpload(id){ if(fbReady) fbDb.collection('uploads').doc(String(i
 function fbSaveLink(l){ if(fbReady) fbDb.collection('links').doc(String(l.id)).set(l).catch(e=>{ console.warn(e); showFbError('save-link', e); }); }
 function fbDeleteLink(id){ if(fbReady) fbDb.collection('links').doc(String(id)).delete().catch(e=>{ console.warn(e); showFbError('delete-link', e); }); }
 function fbSavePremiumRequest(r){ if(fbReady) fbDb.collection('premiumRequests').doc(String(r.id)).set(r).catch(e=>{ console.warn(e); showFbError('save-premium-request', e); }); }
-function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password, broadcastNotifications: (typeof broadcastNotifications !== 'undefined' ? broadcastNotifications : []) }, {merge:true}).catch(e=>{ console.warn(e); showFbError('save-meta', e); }); }
+function fbSaveMeta(){ if(fbReady && typeof siteAnnouncement !== 'undefined' && typeof ADMIN !== 'undefined') fbDb.collection('meta').doc('site').set({ siteAnnouncement, adminPassword: ADMIN.password, broadcastNotifications: (typeof broadcastNotifications !== 'undefined' ? broadcastNotifications : []), forceLogoutEpoch: (typeof forceLogoutEpoch !== 'undefined' ? forceLogoutEpoch : 0) }, {merge:true}).catch(e=>{ console.warn(e); showFbError('save-meta', e); }); }
 
 function subscribeToChat(phone){
   if(!fbReady || !phone || fbChatUnsubs[phone]) return;

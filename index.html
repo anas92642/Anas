@@ -386,6 +386,12 @@
             <button class="btn-primary" onclick="savePaymentSettings()">Save Payment Method</button>
             <div class="success-msg" id="payment-settings-status"></div>
           </div>
+          <div class="settings-card" id="restart-app-card">
+            <h4>// Restart App (Force Logout Everyone)</h4>
+            <div class="note">Ye button dabane se is waqt jahan bhi koi login hai — har user, har device/browser par, aap khud sameet — sab automatically log off ho jayenge aur unhein dobara login karna hoga. Agar neeche "Cloud Sync (Firebase)" connect hai to ye foran har device par asar karega; warna sirf usi device par jab agli baar site khule/refresh ho, tab asar karega. Ye site khud-b-khud tab bhi hota hai jab kabhi is app ka koi naya update host par upload kiya jaye.</div>
+            <button class="btn-primary ghost" onclick="restartApp()">🔄 Restart App — Sab Ko Log Off Karain</button>
+            <div class="success-msg" id="restart-app-status"></div>
+          </div>
           <div class="settings-card" id="cloud-sync-card">
             <h4>// Cloud Sync (Firebase) — required for real multi-device sync</h4>
             <div class="note">Har user ka data ab tak sirf usi browser mein save hota tha. Ye connect karne ke baad — total users, uploads, live chat, online/offline status — sab devices ke darmiyan real-time sync ho jayega. Free Firebase project banain (console.firebase.google.com), Firestore Database + Realtime Database enable karain, phir "Project settings → General → Your apps → SDK config" se ye values yahan paste karain.</div>
