@@ -241,17 +241,10 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       settingsLog: '// Settings', changePw: 'Change Admin Password', curPw: 'Current Password', newPw: 'New Password', confirmPw: 'Confirm New Password',
       btnUpdatePw: 'Update Password', siteAnn: 'Site Announcement', annLabel: 'Message (portal page par sab ko dikhegi)',
       annPh: 'e.g. System maintenance at 10 PM', btnSaveAnn: 'Save Announcement', btnClearAnn: 'Clear Announcement',
-      aiCmdTitle: '// Quick Site Commands', aiCmdNote: 'Ye rule-based command box hai — site ko turant control karta hai. Try karain: "block Ahmed", "publish invoice", "delete photo1", "announcement lagao: naya update aa gaya", "accent green karo".',
-      cmdPh: 'Command likhain...', btnRun: 'Run', ready: 'Ready.',
-      geminiTitle: '// Gemini AI Assistant', geminiNote: 'Apni Google Gemini API key daal kar admin website update karne, content likhwane ya ideas lene ke liye AI se madad le sakta hai. Key sirf isi browser mein (local) save hoti hai aur seedha Google ko jaati hai.',
-      geminiKeyPh: 'Gemini API Key (AIza...)', geminiPromptPh: 'e.g. Eid sale ke liye ek announcement likho',
-      geminiReady: 'Gemini se pochne ke liye upar apni API key daalain.', btnAsk: 'Ask',
-      btnRunGeminiAsCmd: 'Is jawab ko site command ki tarha chalayen',
       backupTitle: '// Backup & Restore', backupNote: 'Update karne se pehle backup download kar lain. Agar update ke doran koi error aa jaye, to backup file wapas import kar ke sab data restore ho jayega.',
       btnExportBackup: '⬇ Download Backup', btnImportBackup: '⬆ Restore From Backup', btnAutoRestore: '↺ Restore Last Auto-Backup',
       adminContact: 'Admin Contact:',
       btnDownload: 'Download', btnClose: 'Close',
-      assistantTitle: 'Rehbar Assistant', assistantHint: 'Mic dabain aur bolain — jaise "logout karo", "dashboard".',
       chatWithAdmin: 'Admin Se Chat', typeMsg: 'Message likhain...', btnSend: 'Send',
       backupDone: 'Backup download ho gaya.', confirmRestore: 'Ye purana data wapas load kar dega — jari rakhain?',
       restoreDone: 'Data restore ho gaya.', restoreFail: 'File parhi nahi ja saki — sahi backup file chunain.',
@@ -296,17 +289,10 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       settingsLog: '// Settings', changePw: 'Change Admin Password', curPw: 'Current Password', newPw: 'New Password', confirmPw: 'Confirm New Password',
       btnUpdatePw: 'Update Password', siteAnn: 'Site Announcement', annLabel: 'Message (shown to everyone on the portal page)',
       annPh: 'e.g. System maintenance at 10 PM', btnSaveAnn: 'Save Announcement', btnClearAnn: 'Clear Announcement',
-      aiCmdTitle: '// Quick Site Commands', aiCmdNote: 'A rule-based command box — controls the site instantly. Try: "block Ahmed", "publish invoice", "delete photo1", "announcement: new update is live", "accent green".',
-      cmdPh: 'Type a command...', btnRun: 'Run', ready: 'Ready.',
-      geminiTitle: '// Gemini AI Assistant', geminiNote: 'Add your Google Gemini API key to get AI help writing content, ideas, or updates for the site. The key is saved only in this browser and goes straight to Google.',
-      geminiKeyPh: 'Gemini API Key (AIza...)', geminiPromptPh: 'e.g. Write an Eid sale announcement',
-      geminiReady: 'Enter your API key above to ask Gemini.', btnAsk: 'Ask',
-      btnRunGeminiAsCmd: 'Run this reply as a site command',
       backupTitle: '// Backup & Restore', backupNote: 'Download a backup before making updates. If an update causes errors, import the backup file to restore everything.',
       btnExportBackup: '⬇ Download Backup', btnImportBackup: '⬆ Restore From Backup', btnAutoRestore: '↺ Restore Last Auto-Backup',
       adminContact: 'Admin Contact:',
       btnDownload: 'Download', btnClose: 'Close',
-      assistantTitle: 'Guide Assistant', assistantHint: 'Press the mic and speak — e.g. "logout", "dashboard".',
       chatWithAdmin: 'Chat With Admin', typeMsg: 'Type a message...', btnSend: 'Send',
       backupDone: 'Backup downloaded.', confirmRestore: 'This will load the old data back — continue?',
       restoreDone: 'Data restored.', restoreFail: 'Could not read the file — pick a valid backup file.',
@@ -720,7 +706,23 @@ document.getElementById('stat-unread').textContent = countUnread();
     const notifToggle = document.getElementById('browser-notif-toggle');
     if(notifToggle) notifToggle.checked = isBrowserNotifEnabled();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
+    renderAdminReports();
+    showAdminSection('home');
     showScreen('screen-welcome-admin');
+  }
+
+  // Read-only summary numbers for the sidebar's "Reports" panel.
+  function renderAdminReports(){
+    const reportUsers = document.getElementById('report-users');
+    const reportContent = document.getElementById('report-content');
+    const reportPremium = document.getElementById('report-premium');
+    const reportSubmissions = document.getElementById('report-submissions');
+    const reportChats = document.getElementById('report-chats');
+    if(reportUsers) reportUsers.textContent = users.length;
+    if(reportContent) reportContent.textContent = uploads.filter(u => u.status === 'published').length + links.filter(l => l.status === 'published').length;
+    if(reportPremium) reportPremium.textContent = premiumRequests.filter(r => r.status === 'pending').length;
+    if(reportSubmissions) reportSubmissions.textContent = uploads.filter(u => u.status === 'awaiting_approval').length + links.filter(l => l.status === 'awaiting_approval').length;
+    if(reportChats) reportChats.textContent = Object.keys(chatThreads).length;
   }
 
 function logout(){
@@ -733,7 +735,6 @@ function logout(){
     if(document.getElementById('reg-password')) document.getElementById('reg-password').value = '';
     if(document.getElementById('admin-password')) document.getElementById('admin-password').value = '';
     if(document.getElementById('chat-panel')) document.getElementById('chat-panel').classList.remove('open');
-    try{ stopListening(); }catch(e){}
     switchRoleTab('user');
     showScreen('screen-portal');
   }
@@ -966,8 +967,8 @@ function toggleBlock(phone){
   // anas92642@gmail.com whenever a new user joins/registers, or when
   // someone uploads a premium payment screenshot. Uses the admin's own
   // free EmailJS account (Service ID / Template ID / Public Key saved
-  // in Settings → Email Notifications), same pattern as the Gemini key.
-  // Silently does nothing if not configured yet.
+  // in Settings → Email Notifications). Silently does nothing if not
+  // configured yet.
   // =================================================================
   const ADMIN_NOTIFY_EMAIL = 'anas92642@gmail.com';
 
@@ -1062,13 +1063,15 @@ function toggleBlock(phone){
     }
     const list = document.getElementById('notif-list');
     if(!list) return;
-    const items = combinedNotifList();
+    // Only show what's actually new — once something has been seen it
+    // drops out of this list instead of piling up as history.
+    const items = combinedNotifList().filter(n => !n.read);
     if(items.length === 0){
-      list.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Abhi tak koi notification nahi.' : 'No notifications yet.'}</div>`;
+      list.innerHTML = `<div class="empty-note">${currentLang==='ur' ? 'Koi nayi notification nahi.' : 'No new notifications.'}</div>`;
       return;
     }
     list.innerHTML = items.map(n => `
-      <div class="notif-item ${n.read ? '' : 'unread'}">
+      <div class="notif-item unread">
         <div class="notif-text">${escapeHtml(currentLang==='ur' ? n.textUr : n.textEn)}</div>
         <div class="notif-time">${n.time}</div>
       </div>
@@ -1081,6 +1084,9 @@ function toggleBlock(phone){
     const opening = !panel.classList.contains('show');
     panel.classList.toggle('show');
     if(opening){
+      // Render first so the admin/user actually sees what was new,
+      // then mark it read (so it won't show again next time).
+      renderNotifBell();
       if(currentRole === 'admin'){
         adminNotifications.forEach(n => n.read = true);
         saveState();
@@ -1093,7 +1099,8 @@ function toggleBlock(phone){
           if(window.fbSaveUser) window.fbSaveUser(u);
         }
       }
-      renderNotifBell();
+      const badge = document.getElementById('notif-badge');
+      if(badge){ badge.textContent = '0'; badge.style.display = 'none'; }
     }
   }
 
@@ -1181,9 +1188,9 @@ function toggleBlock(phone){
   // clear upfront size check instead of a silent failure later.
   const MAX_NON_IMAGE_UPLOAD_BYTES = 700 * 1024;
 
-  // Shared brand watermark shown on every auto-generated icon (AI logo
-  // or the plain letter-tile fallback) so "Anas Technical World" stays
-  // visible on the icon itself, regardless of what name was given.
+  // Shared brand watermark shown on every auto-generated letter-tile
+  // icon so "Anas Technical World" stays visible on the icon itself,
+  // regardless of what name was given.
   function brandMarkHTML(){
     return `<span class="brand-mark">ATW</span>`;
   }
@@ -1220,42 +1227,6 @@ function toggleBlock(phone){
     if(statusEl) statusEl.textContent = '';
   }
 
-  // If nobody attached a picture, ask Gemini (using the admin's saved
-  // key — the same one used for the AI link description) to generate a
-  // simple branded icon from the item's name. Optional and best-effort:
-  // with no key saved, or if the request fails, the auto letter-tile
-  // icon (which already carries the "ATW" watermark) is left as-is.
-  function generateAILogoForItem(item, kind){
-    const key = localStorage.getItem('atw_gemini_key') || '';
-    if(!key) return;
-    const prompt = 'Design a simple, modern, flat, square app-icon logo for something named "' + item.name +
-      '". Bold single accent colour, minimal shapes, no photorealism, no readable text except a tiny "Anas Technical World" watermark tucked in a corner.';
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + encodeURIComponent(key), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    })
-    .then(r => r.json())
-    .then(data => {
-      const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-      const imgPart = parts && parts.find(p => p.inlineData && p.inlineData.data);
-      if(!imgPart) return;
-      const dataUrl = 'data:' + (imgPart.inlineData.mimeType || 'image/png') + ';base64,' + imgPart.inlineData.data;
-      const list = kind === 'upload' ? uploads : links;
-      const target = list.find(x => x.id === item.id);
-      if(!target) return;
-      target.logo = dataUrl;
-      saveState();
-      if(kind === 'upload' && window.fbSaveUpload) window.fbSaveUpload(target);
-      if(kind === 'link' && window.fbSaveLink) window.fbSaveLink(target);
-      renderAdminUploads(); renderCommunityUploads();
-      renderAdminLinks(); renderUserLinks();
-      renderModSubmissionsForAdmin();
-      renderModOwnSubmissions();
-    })
-    .catch(() => { /* AI logo is optional — the ATW-branded letter-tile stays as the icon */ });
-  }
-
   function finishAdminUpload(displayName, fileType, dataUrl, downloadName, extra){
     extra = extra || {};
     const item = {
@@ -1277,11 +1248,6 @@ function toggleBlock(phone){
     uploads.push(item);
     saveState();
     if(window.fbSaveUpload) window.fbSaveUpload(item);
-    // If it isn't already an image file and nobody attached a custom
-    // picture, try to auto-generate a branded logo for it.
-    if(!item.logo && !(fileType && fileType.startsWith('image/'))){
-      generateAILogoForItem(item, 'upload');
-    }
     renderAdminUploads();
     renderCommunityUploads();
     if(item.uploadedBy === 'moderator'){
@@ -1427,8 +1393,8 @@ function toggleBlock(phone){
 
   // Renders every upload as an "app icon" tile (rounded icon + name
   // underneath, like a phone home-screen), the same visual language as
-  // the link tiles below. A custom/AI logo (u.logo) always wins; then a
-  // real image file; then the branded letter-tile fallback.
+  // the link tiles below. A custom uploaded logo (u.logo) always wins;
+  // then a real image file; then the branded letter-tile fallback.
   function uploadIconHTML(u){
     const lock = u.premium ? `<span class="lock-corner" title="Premium">🔒</span>` : '';
     if(u.logo){
@@ -1451,8 +1417,8 @@ function toggleBlock(phone){
     return `<div class="premium-tag">🔒 ${currentLang==='ur' ? 'پریمیم' : 'Premium'}${priceTxt}</div>`;
   }
 
-  // Auto-generate an icon for a link: a custom/AI logo (link.logo) wins
-  // first, then the site's favicon, then the branded letter-tile.
+  // Auto-generate an icon for a link: a custom uploaded logo (link.logo)
+  // wins first, then the site's favicon, then the branded letter-tile.
   function linkIconHTML(link){
     const lock = link.premium ? `<span class="lock-corner" title="Premium">🔒</span>` : '';
     if(link.logo){
@@ -1991,39 +1957,6 @@ function closeModal(){
     renderUserLinks();
     renderModSubmissionsForAdmin();
     renderModOwnSubmissions();
-    if(!description) generateLinkAIDescription(item);
-    if(!customLogo) generateAILogoForItem(item, 'link');
-  }
-
-  // Auto-writes a one-line "meaning" for a link using the admin's saved
-  // Gemini key (same key used by the Gemini AI panel). If no key is set
-  // yet, this quietly does nothing — the link still works fine without
-  // a description, the admin just won't get the AI blurb. Only runs
-  // when nobody already typed their own description.
-  function generateLinkAIDescription(item){
-    const key = localStorage.getItem('atw_gemini_key') || '';
-    if(!key) return;
-    const prompt = 'In under 12 words, in Roman Urdu, say what this website/link is for. Name: "' + item.name + '". URL: ' + item.url + '. Reply with ONLY the short description, nothing else.';
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    })
-    .then(r => r.json())
-    .then(data => {
-      const reply = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text;
-      if(!reply) return;
-      const target = links.find(l => l.id === item.id);
-      if(!target || target.description) return;
-      target.description = reply.trim().replace(/^["']|["']$/g, '');
-      saveState();
-      if(window.fbSaveLink) window.fbSaveLink(target);
-      renderAdminLinks();
-      renderUserLinks();
-      renderModSubmissionsForAdmin();
-      renderModOwnSubmissions();
-    })
-    .catch(() => { /* AI description is optional — fail silently */ });
   }
 
   function deleteLink(id){
@@ -2304,7 +2237,7 @@ function closeModal(){
     thread.messages.forEach(m => { if(m.from === 'admin') m.read = true; });
     const log = document.getElementById('user-chat-log');
     log.innerHTML = thread.messages.map(m => `
-      <div class="chat-bubble ${m.from === 'user' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
+      <div class="chat-bubble ${m.from === 'user' ? 'me' : 'them'}">${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
     `).join('') || `<div class="empty-note" style="padding:16px;">${currentLang==='ur' ? 'Admin ko message bhejain.' : 'Send a message to Admin.'}</div>`;
     log.scrollTop = log.scrollHeight;
     document.getElementById('chat-badge').classList.remove('show');
@@ -2361,7 +2294,7 @@ function closeModal(){
     const th = chatThreads[openThreadPhone];
     const log = document.getElementById('admin-chat-log');
     log.innerHTML = th.messages.map(m => `
-      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'} ${m.from === 'ai' ? 'ai' : ''}">${m.from === 'ai' ? '🤖 ' : ''}${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
+      <div class="chat-bubble ${m.from === 'admin' ? 'me' : 'them'}">${escapeHtml(m.text)}<span class="t">${m.time}</span></div>
     `).join('') || `<div class="empty-note" style="padding:16px;">${currentLang==='ur' ? 'Koi message nahi.' : 'No messages.'}</div>`;
     log.scrollTop = log.scrollHeight;
   }
@@ -2420,53 +2353,6 @@ function closeModal(){
   });
 
   // =================================================================
-  // GEMINI AI ASSISTANT (admin only — calls Google's Gemini API directly
-  // from the browser using an API key the admin supplies and stores
-  // locally). For production use, proxy this through your own backend
-  // so the API key is never exposed in client-side code.
-  // =================================================================
-  let lastGeminiReply = '';
-
-  function askGemini(){
-    const keyInput = document.getElementById('gemini-key-input');
-    const key = keyInput.value.trim() || localStorage.getItem('atw_gemini_key') || '';
-    const promptInput = document.getElementById('gemini-prompt-input');
-    const prompt = promptInput.value.trim();
-    const out = document.getElementById('gemini-log-out');
-    if(!key){ out.textContent = currentLang==='ur' ? 'Pehle apni Gemini API key daalain.' : 'Please enter your Gemini API key first.'; return; }
-    if(!prompt){ out.textContent = currentLang==='ur' ? 'Sawal ya command likhain.' : 'Type a question or command.'; return; }
-    localStorage.setItem('atw_gemini_key', key);
-    out.textContent = currentLang==='ur' ? 'Gemini se jawab aa raha hai...' : 'Waiting for Gemini...';
-
-    const systemPrompt = "You are an assistant helping the admin of a small website called 'Anas Technical World' (an Urdu/English bilingual portal). Reply concisely in the same language as the prompt (Roman Urdu, Urdu script, or English). If the admin's request looks like a site action (block/unblock a user, publish/unpublish/delete a file, set an announcement, change accent color), restate it as ONE line in this exact format so it can be run as a command: block <name> | unblock <name> | publish <filename> | unpublish <filename> | delete <filename> | announcement lagao: <message> | accent green|blue|amber karo — otherwise just answer normally.";
-
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + '\\n\\nAdmin: ' + prompt }] }] })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.error){ out.textContent = 'Gemini error: ' + data.error.message; return; }
-      const reply = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text) || (currentLang==='ur' ? 'Koi jawab nahi mila.' : 'No reply received.');
-      lastGeminiReply = reply.trim();
-      out.textContent = lastGeminiReply;
-    })
-    .catch(err => {
-      out.textContent = (currentLang==='ur' ? 'Gemini se rabta nahi ho saka: ' : 'Could not reach Gemini: ') + err.message;
-    });
-  }
-
-  function runGeminiReplyAsCommand(){
-    const out = document.getElementById('gemini-log-out');
-    if(!lastGeminiReply){ out.textContent = currentLang==='ur' ? 'Pehle Gemini se koi jawab lein.' : 'Ask Gemini something first.'; return; }
-    const originalSpeak = speak;
-    window.speak = function(msg){ out.textContent = msg; };
-    handleCommand(lastGeminiReply);
-    window.speak = originalSpeak;
-  }
-
-  // =================================================================
   // TYPEWRITER HEADING
   // =================================================================
   function typeText(el, text, speed){
@@ -2486,13 +2372,26 @@ function closeModal(){
     step();
   }
 
+  // =================================================================
+  // ADMIN SIDEBAR NAVIGATION
+  // Switches which admin panel section is visible and highlights the
+  // matching sidebar button. Defaults to "home" whenever the admin
+  // dashboard is (re)loaded.
+  // =================================================================
+  function showAdminSection(name){
+    document.querySelectorAll('.admin-panel-section').forEach(function(sec){
+      sec.classList.toggle('active', sec.getAttribute('data-panel') === name);
+    });
+    document.querySelectorAll('.admin-nav-btn').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-panel') === name);
+    });
+  }
+
   window.addEventListener('DOMContentLoaded', () => {
     loadState();
     setLanguage(currentLang);
     applyAnnouncement();
     document.getElementById('portal-whatsapp').href = 'https://wa.me/' + WHATSAPP_NUMBER;
-    const savedKey = localStorage.getItem('atw_gemini_key');
-    if(savedKey) document.getElementById('gemini-key-input').value = savedKey;
     initEmailJs();
     initPaymentSettings();
 
@@ -2512,355 +2411,6 @@ document.addEventListener('keydown', function(e){
       if(document.getElementById('pane-admin').style.display !== 'none') adminLogin();
       else registerUser();
     }
-    if(document.activeElement && document.activeElement.id === 'ai-command-input') runAiCommandFromBox();
     if(document.activeElement && document.activeElement.id === 'user-chat-input') userSendMessage();
     if(document.activeElement && document.activeElement.id === 'admin-chat-input') adminSendMessage();
   });
-
-  // =================================================================
-  // AI / VOICE COMMAND ASSISTANT
-  // Rule-based command interpreter + Web Speech API (browser dependent).
-  // Works for both admin and user after login.
-  // =================================================================
-  let recognition = null;
-  let isListening = false;
-  let keepConversationGoing = false; // true while assistant should auto re-listen after each reply
-  let restartTimer = null;
-
-  function getSpeechRecognitionClass(){
-    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
-  }
-
-  // file:// pages cannot get mic access in Chrome/Edge — must be served over
-  // http(s) (a real host, or "Live Server" / `python -m http.server` locally).
-  function isMicCapableContext(){
-    return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  }
-
-  function toggleListening(){
-    const panel = document.getElementById('assistant-panel');
-    panel.classList.add('open');
-
-    const SR = getSpeechRecognitionClass();
-    if(!SR){
-      logToAssistant('a', currentLang==='ur' ? 'Ye browser voice recognition support nahi karta. Chrome/Edge try karain, ya neeche type kar ke command dein.' : 'This browser does not support voice recognition. Try Chrome/Edge, or type your command below.');
-      addTypeFallback();
-      return;
-    }
-    if(!isMicCapableContext()){
-      logToAssistant('a', currentLang==='ur'
-        ? 'Mic sirf https:// website ya localhost par kaam karta hai — file ko seedha double-click kar ke kholne par browser mic band kar deta hai. Site ko host karain (ya localhost par chalain), phir mic kaam karega. Abhi ke liye neeche type kar ke command dein.'
-        : "The mic only works when this page is served over https:// or localhost — opening the file directly (file://) makes Chrome/Edge block microphone access. Host the site (or run it on localhost), then the mic will work. For now, type your command below.");
-      addTypeFallback();
-      return;
-    }
-
-    if(isListening){
-      keepConversationGoing = false;
-      stopListening();
-      return;
-    }
-
-    keepConversationGoing = true;
-    startRecognitionCycle();
-  }
-
-  function startRecognitionCycle(){
-    const SR = getSpeechRecognitionClass();
-    recognition = new SR();
-    recognition.lang = currentLang === 'ur' ? 'ur-PK' : 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      isListening = true;
-      document.getElementById('mic-btn').classList.add('listening');
-      logToAssistant('a', currentLang==='ur' ? 'Sun raha hoon... bolain.' : 'Listening... speak now.');
-    };
-    recognition.onerror = (e) => {
-      keepConversationGoing = false;
-      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
-        logToAssistant('a', currentLang==='ur' ? 'Mic ki permission block hai. Browser address bar ke pas 🔒/mic icon par click karke mic ko "Allow" karain, phir dobara try karain.' : 'Microphone permission is blocked. Click the 🔒/mic icon in the address bar, allow the microphone, then try again.');
-      } else if(e.error === 'no-speech'){
-        logToAssistant('a', currentLang==='ur' ? 'Kuch suna nahi. Dubara bolain.' : "Didn't catch anything. Try speaking again.");
-        keepConversationGoing = true;
-      } else {
-        logToAssistant('a', (currentLang==='ur' ? 'Awaz samajh nahi aayi (' : 'Could not understand (') + e.error + '). ' + (currentLang==='ur' ? 'Dubara koshish karain.' : 'Try again.'));
-      }
-      stopListening();
-    };
-    recognition.onend = () => {
-      isListening = false;
-      document.getElementById('mic-btn').classList.remove('listening');
-      // If the assistant is meant to stay "on", automatically start listening
-      // again after a short pause — creates a real back-and-forth conversation
-      // instead of stopping after one sentence.
-      if(keepConversationGoing){
-        clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => { if(keepConversationGoing) startRecognitionCycle(); }, 500);
-      }
-    };
-    recognition.onresult = (event) => {
-      const said = event.results[0][0].transcript;
-      logToAssistant('u', said);
-      handleCommand(said);
-    };
-
-    try{ recognition.start(); } catch(err){ logToAssistant('a', currentLang==='ur' ? 'Mic start nahi ho saka.' : 'Could not start the mic.'); }
-  }
-
-  function stopListening(){
-    isListening = false;
-    keepConversationGoing = false;
-    clearTimeout(restartTimer);
-    document.getElementById('mic-btn').classList.remove('listening');
-    if(recognition){ try{ recognition.stop(); }catch(e){} }
-  }
-
-  let typeFallbackAdded = false;
-  function addTypeFallback(){
-    if(typeFallbackAdded) return;
-    typeFallbackAdded = true;
-    const panel = document.getElementById('assistant-panel');
-    const row = document.createElement('div');
-    row.className = 'ai-input-row';
-    row.innerHTML = `<input type="text" id="assistant-type-input" placeholder="${currentLang==='ur'?'Command type karain...':'Type a command...'}"><button onclick="submitTypedCommand()">${currentLang==='ur'?'Send':'Send'}</button>`;
-    panel.appendChild(row);
-  }
-  function submitTypedCommand(){
-    const inp = document.getElementById('assistant-type-input');
-    const val = inp.value.trim();
-    if(!val) return;
-    logToAssistant('u', val);
-    handleCommand(val);
-    inp.value = '';
-  }
-
-  function logToAssistant(who, text){
-    const log = document.getElementById('assistant-log');
-    const div = document.createElement('div');
-    div.className = who === 'u' ? 'u' : 'a';
-    div.textContent = (who === 'u' ? '🗣 ' : '🤖 ') + text;
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
-  }
-
-  function speak(text){
-    logToAssistant('a', text);
-    if(!('speechSynthesis' in window)) return;
-    try{
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = currentLang === 'ur' ? 'ur-PK' : 'en-US';
-      const voices = speechSynthesis.getVoices();
-      const vc = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(currentLang));
-      if(vc) utter.voice = vc;
-      speechSynthesis.speak(utter);
-    }catch(e){}
-  }
-
-  // Main command router — used by both voice + typed + Gemini command box
-  function handleCommand(raw){
-    const text = raw.trim();
-    const low = text.toLowerCase();
-
-    // Stop the always-listening conversation loop
-    if(low.includes('stop listening') || low.includes('band karo') || low.includes('chup ho') || low.includes('rukjao') || low.includes('ruk jao')){
-      keepConversationGoing = false;
-      speak(currentLang==='ur' ? 'Theek hai, mic band kar raha hoon.' : 'Okay, turning the mic off.');
-      setTimeout(stopListening, 300);
-      return;
-    }
-
-    if(low.includes('logout') || text.includes('لاگ آؤٹ')){
-      speak(currentLang==='ur' ? 'Aap logout ho rahe hain.' : 'Logging you out.');
-      keepConversationGoing = false;
-      setTimeout(logout, 600);
-      return;
-    }
-    if(low.includes('dashboard') || low.includes('home') || low.includes('wapas')){
-      window.scrollTo({top:0, behavior:'smooth'});
-      speak(currentLang==='ur' ? 'Dashboard par wapas le aya hoon.' : 'Back at the dashboard.');
-      return;
-    }
-
-    // Generic "open X" / "click X" — works anywhere on the site (admin or
-    // user side), and can open/click anything currently on screen: menu
-    // items, uploaded files/links, buttons, section headings, etc.
-    if(low.startsWith('open ') || low.startsWith('click ') || low.includes('kholo') || low.includes('khol do') || text.includes('کھولو') || text.includes('کلک')){
-      let fragment = low;
-      ['open ', 'click '].forEach(k => { if(fragment.startsWith(k)) fragment = fragment.slice(k.length); });
-      fragment = fragment.replace(/\bkholo\b|\bkhol do\b|\bko\b|\bkholain\b|\bpar click karo\b|\bclick karo\b/g, '').trim();
-      if(fragment && clickElementByText(fragment)){
-        speak(currentLang==='ur' ? `"${fragment}" khol raha hoon.` : `Opening "${fragment}".`);
-        return;
-      } else if(fragment){
-        speak(currentLang==='ur' ? `Mujhe "${fragment}" naam ki cheez screen par nahi mili.` : `I couldn't find anything on screen called "${fragment}".`);
-        return;
-      }
-    }
-
-    if(currentRole === 'admin'){
-      if(low.includes('users') && !low.includes('block') && !low.includes('unblock')){
-        document.getElementById('users-section').scrollIntoView({behavior:'smooth'});
-        speak(currentLang==='ur' ? 'Users list dikha raha hoon.' : 'Showing the users list.');
-        return;
-      }
-      if(low.includes('uploads') && !low.includes('publish') && !low.includes('delete')){
-        document.getElementById('content-section').scrollIntoView({behavior:'smooth'});
-        speak(currentLang==='ur' ? 'Uploads list dikha raha hoon.' : 'Showing the uploads list.');
-        return;
-      }
-      if(low.includes('password')){
-        document.getElementById('settings-section').scrollIntoView({behavior:'smooth'});
-        speak(currentLang==='ur' ? 'Password change form khol diya.' : 'Opened the password change form.');
-        return;
-      }
-      if(low.includes('unblock')){
-        const name = extractAfterKeyword(low, 'unblock');
-        const u = findUserByName(name);
-        if(u){ u.blocked = false; saveState(); renderUsersList(); speak(u.name + (currentLang==='ur'?' ko unblock kar diya gaya.':' has been unblocked.')); }
-        else speak(currentLang==='ur' ? 'Mujhe ye user nahi mila.' : "Couldn't find that user.");
-        return;
-      }
-      if(low.includes('block')){
-        const name = extractAfterKeyword(low, 'block');
-        const u = findUserByName(name);
-        if(u){ u.blocked = true; saveState(); renderUsersList(); speak(u.name + (currentLang==='ur'?' ko block kar diya gaya.':' has been blocked.')); }
-        else speak(currentLang==='ur' ? 'Mujhe ye user nahi mila.' : "Couldn't find that user.");
-        return;
-      }
-      if(low.includes('unpublish')){
-        const name = extractAfterKeyword(low, 'unpublish');
-        const up = findUploadByName(name);
-        if(up){ setUploadStatus(up.id, 'unpublished'); speak(up.fileName + (currentLang==='ur'?' unpublish kar diya gaya.':' has been unpublished.')); }
-        else speak(currentLang==='ur' ? 'Mujhe ye file nahi mili.' : "Couldn't find that file.");
-        return;
-      }
-      if(low.includes('publish')){
-        const name = extractAfterKeyword(low, 'publish');
-        const up = findUploadByName(name);
-        if(up){ setUploadStatus(up.id, 'published'); speak(up.fileName + (currentLang==='ur'?' publish kar diya gaya.':' has been published.')); }
-        else speak(currentLang==='ur' ? 'Mujhe ye file nahi mili.' : "Couldn't find that file.");
-        return;
-      }
-      if(low.includes('delete')){
-        const name = extractAfterKeyword(low, 'delete');
-        const up = findUploadByName(name);
-        if(up){ deleteUpload(up.id); speak(up.fileName + (currentLang==='ur'?' delete kar diya gaya.':' has been deleted.')); }
-        else speak(currentLang==='ur' ? 'Mujhe ye file nahi mili.' : "Couldn't find that file.");
-        return;
-      }
-      if(low.includes('announcement') || text.includes('اعلان')){
-        const idx = text.indexOf(':');
-        if(idx > -1){
-          siteAnnouncement = text.substring(idx+1).trim();
-          saveState();
-          applyAnnouncement();
-          speak(currentLang==='ur' ? 'Announcement laga diya gaya.' : 'Announcement has been set.');
-        } else {
-          speak(currentLang==='ur' ? 'Announcement ke liye colon ke baad message likhain, jaise: announcement lagao: naya update aa gaya' : 'Add a colon then the message, e.g: announcement: new update is live');
-        }
-        return;
-      }
-      if(low.includes('accent') || low.includes('color') || low.includes('theme')){
-        if(low.includes('green') || low.includes('sabz') || text.includes('سبز')){
-          document.documentElement.style.setProperty('--cyan', '#3dff9a');
-          document.documentElement.style.setProperty('--cyan-dim', '#0fa36c');
-          speak(currentLang==='ur' ? 'Accent color green kar diya gaya.' : 'Accent color set to green.');
-        } else if(low.includes('blue') || low.includes('neela') || low.includes('cyan') || text.includes('نیلا')){
-          document.documentElement.style.setProperty('--cyan', '#3df3ff');
-          document.documentElement.style.setProperty('--cyan-dim', '#0f8fa3');
-          speak(currentLang==='ur' ? 'Accent color blue kar diya gaya.' : 'Accent color set to blue.');
-        } else if(low.includes('amber') || low.includes('gold') || low.includes('peela') || text.includes('پیلا')){
-          document.documentElement.style.setProperty('--cyan', '#ffbe3d');
-          document.documentElement.style.setProperty('--cyan-dim', '#c98f10');
-          speak(currentLang==='ur' ? 'Accent color amber kar diya gaya.' : 'Accent color set to amber.');
-        } else {
-          speak(currentLang==='ur' ? 'Rang batain — jaise "accent green karo" ya "accent blue karo".' : 'Name a color — e.g. "accent green" or "accent blue".');
-        }
-        return;
-      }
-    }
-
-    // General conversation — small talk / greetings, so the assistant can
-    // chat even when it's not a site command.
-    const chit = chitChatReply(low, text);
-    if(chit){ speak(chit); return; }
-
-    speak(currentLang==='ur' ? 'Maaf kijiye, ye command samajh nahi aayi. Dobara kahiye ya type kar ke likhain.' : "Sorry, I didn't understand that command. Try again or type it out.");
-  }
-
-  // Finds a clickable/visible element on the CURRENT screen whose text
-  // matches the spoken fragment, and clicks it — this is how voice commands
-  // like "open uploads" or "click publish" actually control the page.
-  function clickElementByText(fragment){
-    fragment = fragment.trim().toLowerCase();
-    if(!fragment) return false;
-    const activeScreen = document.querySelector('.screen.active') || document;
-    const candidates = activeScreen.querySelectorAll('button, a, [onclick], input[type="submit"], input[type="button"], .tab, .nav-item, [role="button"], summary, h1, h2, h3, .section-title');
-    let best = null, bestScore = 0;
-    candidates.forEach(el => {
-      if(el.offsetParent === null) return; // skip hidden elements
-      const label = (el.getAttribute('aria-label') || el.textContent || el.value || '').trim().toLowerCase();
-      if(!label) return;
-      if(label === fragment){ best = el; bestScore = 100; }
-      else if((label.includes(fragment) || fragment.includes(label)) && bestScore < 50){ best = el; bestScore = 50; }
-    });
-    if(!best) return false;
-    if(typeof best.click === 'function') best.click();
-    else best.scrollIntoView({behavior:'smooth', block:'center'});
-    if(best.scrollIntoView && bestScore < 100) best.scrollIntoView({behavior:'smooth', block:'center'});
-    return true;
-  }
-
-  // Lightweight small-talk so the assistant can hold a normal conversation,
-  // not just fire commands. Extend this list any time.
-  function chitChatReply(low, original){
-    const has = (...words) => words.some(w => low.includes(w));
-    if(has('kaisay ho', 'kesay ho', 'kia hal', 'kya hal', 'how are you', 'kya haal hai')){
-      return currentLang==='ur' ? 'Main bilkul theek hoon, shukriya! Aap batain, main aapki kya madad kar sakta hoon?' : "I'm doing great, thanks for asking! How can I help you?";
-    }
-    if(has('assalam', 'salam', 'hello', 'hi ', 'hey')){
-      return currentLang==='ur' ? 'Walaikum Assalam! Main aapka voice assistant hoon — koi bhi command bolain ya baat karain.' : 'Hello! I\'m your voice assistant — give me a command or just chat.';
-    }
-    if(has('shukriya', 'thank you', 'thanks')){
-      return currentLang==='ur' ? 'Koi baat nahi, hamesha hazir hoon!' : "You're welcome, always here to help!";
-    }
-    if(has('naam kya', 'aapka naam', 'your name', 'who are you', 'kaun ho')){
-      return currentLang==='ur' ? 'Main Anas Technical World ka AI voice assistant hoon.' : "I'm the Anas Technical World AI voice assistant.";
-    }
-    if(has('help', 'madad', 'kya kar sakty', 'kya kar sakte')){
-      return currentLang==='ur'
-        ? 'Main site control kar sakta hoon — jaise "open uploads", "block Ahmed", "publish file", "logout" — ya bas mujhse baat kar sakte hain.'
-        : 'I can control the site — like "open uploads", "block Ahmed", "publish file", "logout" — or you can just chat with me.';
-    }
-    return null;
-  }
-
-  function extractAfterKeyword(low, keyword){
-    const idx = low.indexOf(keyword);
-    if(idx === -1) return '';
-    return low.substring(idx + keyword.length).trim();
-  }
-  function findUserByName(fragment){
-    if(!fragment) return null;
-    return users.find(u => u.name.toLowerCase().includes(fragment) || fragment.includes(u.name.toLowerCase()));
-  }
-  function findUploadByName(fragment){
-    if(!fragment) return null;
-    return uploads.find(u => u.fileName.toLowerCase().includes(fragment) || fragment.includes(u.fileName.toLowerCase().replace(/\.[^.]+$/, '')));
-  }
-
-  // Admin's typed quick-command box (also routes through handleCommand)
-  function runAiCommandFromBox(){
-    const input = document.getElementById('ai-command-input');
-    const val = input.value.trim();
-    if(!val) return;
-    const out = document.getElementById('ai-log-out');
-    out.textContent = (currentLang==='ur' ? 'Process ho raha hai: "' : 'Processing: "') + val + '"...';
-    const originalSpeak = speak;
-    window.speak = function(msg){ out.textContent = msg; };
-    handleCommand(val);
-    window.speak = originalSpeak;
-    input.value = '';
-  }

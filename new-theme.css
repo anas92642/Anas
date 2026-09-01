@@ -252,13 +252,7 @@ body[data-lang="ur"] .ur-font{ font-family:var(--font-ur); }
   border-radius:var(--radius-lg) !important; color:var(--text) !important;
 }
 
-/* ---------- voice assistant / chat ---------- */
-.mic-btn{ background:var(--cyan) !important; color:#fff !important; box-shadow:0 10px 22px -10px rgba(47,122,134,0.55) !important; }
-.assistant-panel{ background:#fff !important; border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important; }
-.assistant-log{ color:var(--text) !important; }
-.assistant-hint{ color:var(--dim) !important; }
-.ai-command-box{ background:#f5f8f9 !important; color:var(--dim) !important; }
-
+/* ---------- chat ---------- */
 .chat-btn{ background:var(--cyan) !important; color:#fff !important; box-shadow:0 10px 22px -10px rgba(47,122,134,0.55) !important; }
 .chat-panel{ background:#fff !important; border:1px solid #e4eaec !important; box-shadow:var(--shadow-card) !important; }
 .chat-log{ background:#f7fafa !important; }
