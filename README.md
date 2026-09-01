@@ -1,3 +1,29 @@
+## No-login guest mode (latest update)
+- The old User Register/Login system is gone from the public site. The
+  site now opens directly to the content list — every visitor sees the
+  rate/price under each item immediately, no login wall.
+- **Tap any item** → its description pops up in a small card. Nothing is
+  required just to look.
+- **Buy a 🔒 Premium item** → a small popup asks for just **Name +
+  Phone Number** (no password, no photo, one time per device — it's
+  remembered after that), then shows the JazzCash payment details +
+  screenshot upload, exactly like before. Admin approves it from
+  **Premium_Requests.log** the same way; once approved it stays
+  unlocked for that visitor's device.
+- **Live Chat (💬 bottom-left)** → asks only for a **Name**, then opens
+  straight into the chat with Admin. Admin sees and replies to every
+  conversation from the dashboard's Live Chat section, same as before.
+- The **⚙ Admin** button (top-left of the guest page) still opens the
+  Admin password login — that part is unchanged and is now the *only*
+  login on the site. The old Moderator/Register/Login system still
+  exists in the code (harmless, just hidden) in case you ever want to
+  re-enable accounts later.
+- Note: if you connect Cloud Sync (Firebase) for multi-device sync,
+  Admin discovering a brand-new guest's chat thread from a *different*
+  device in real time still needs Admin to open/see that guest at
+  least once (same as the existing per-thread subscription model) —
+  messages themselves always sync correctly either way.
+
 # Anas Technical World — File Structure
 
 ```

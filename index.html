@@ -31,7 +31,7 @@
     <div class="announcement" id="guest-announcement"></div>
     <div class="portal-wrap">
       <h1 id="guest-typewriter-heading"></h1>
-      <p class="sub" data-i18n="guestSub">Neeche mojood content sirf dekhne ke liye hai. Kisi bhi file/link ko kholne ya Live Chat ke liye Login ya Register karna zaroori hai.</p>
+      <p class="sub" data-i18n="guestSub">Neeche mojood har cheez ka rate/price dikhaya gaya hai. Kisi bhi item par click karain — description khul jayegi. Khareedne ke liye sirf naam aur phone number chahiye. Live Chat ke liye sirf apna naam den.</p>
 
       <div class="section" id="guest-content-section" style="text-align:left;">
         <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Content</h3><span id="guest-community-count">0 items</span></div>
@@ -47,27 +47,28 @@
     <div class="portal-wrap">
       <button type="button" class="guest-back-link" onclick="showScreen('screen-guest')" data-i18n="btnBackToSite">← Site par wapas jayein</button>
       <h1 id="typewriter-heading"></h1>
-      <p class="sub" data-i18n="portalSub">Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.</p>
+      <p class="sub" data-i18n="portalSub">Sirf Admin login ke liye.</p>
 
       <div class="portal-flex">
         <div class="card-shell" style="margin:0;">
           <div class="card-header">
             <div class="badge-dot">ATW</div>
             <h2 data-i18n="accessTitle">Access Card</h2>
-            <p data-i18n="accessSub">Neeche apna role select karain</p>
+            <p data-i18n="accessSub">Admin password likhain</p>
           </div>
 
           <div class="login-hero" id="portal-login-hero">
             <img src="assets/hero-arms-crossed.png" alt="Anas Technical World">
           </div>
 
-          <div class="role-tabs">
+          <div class="role-tabs" style="display:none;">
             <button class="active" id="role-tab-user" onclick="switchRoleTab('user')" data-i18n="tabUser">User</button>
             <button id="role-tab-admin" onclick="switchRoleTab('admin')" data-i18n="tabAdmin">Admin</button>
           </div>
 
-<!-- USER PANE (separate Register / Login tabs) -->
-          <div id="pane-user">
+<!-- USER PANE (legacy register/login — kept in DOM but hidden; the site
+     no longer sends regular visitors through login/register) -->
+          <div id="pane-user" style="display:none;">
             <div class="tabs">
               <button class="active" id="tab-register" onclick="switchUserTab('register')" data-i18n="btnRegister">Register</button>
               <button id="tab-login" onclick="switchUserTab('login')" data-i18n="btnLogin">Login</button>
@@ -600,6 +601,26 @@
     <div class="modal-actions">
       <button class="btn-primary" id="content-detail-open-btn">Open</button>
       <button class="btn-primary ghost" onclick="closeContentDetailModal()" data-i18n="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GUEST IDENTITY MODAL (no login — just name, +phone for buying) ============ -->
+<div class="modal-overlay" id="guest-identity-modal">
+  <div class="modal-box">
+    <h4 id="guest-identity-title" data-i18n="guestIdTitleChat">Apna Naam Likhein</h4>
+    <div class="field">
+      <label data-i18n="lblName">Naam (Name)</label>
+      <input type="text" id="guest-identity-name" data-i18n-ph="phName" placeholder="e.g. Ahmed Raza">
+    </div>
+    <div class="field" id="guest-identity-phone-field">
+      <label data-i18n="lblPhone">Phone Number</label>
+      <input type="tel" id="guest-identity-phone" data-i18n-ph="phPhone" placeholder="e.g. 03001234567">
+    </div>
+    <div class="error-msg" id="guest-identity-error"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="submitGuestIdentity()" data-i18n="btnContinue">Continue</button>
+      <button class="btn-primary ghost" onclick="closeGuestIdentityModal()" data-i18n="btnClose">Close</button>
     </div>
   </div>
 </div>

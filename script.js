@@ -88,6 +88,77 @@ let ADMIN = { name: "Anas Ishaq", password: "Anas007", erp: "92642" };
   let broadcastNotifications = []; // site-wide notifications (new publish, new link, announcement)
   let adminNotifications = [];     // admin-only feed (new registration requests, new messages)
 
+  // -----------------------------------------------------------------
+  // GUEST IDENTITY — the site no longer requires login/register for
+  // regular visitors. Browsing and opening item descriptions needs
+  // nothing at all. Buying a premium item needs a name + phone number
+  // (for the payment/contact), and Live Chat needs just a name. Both
+  // are collected once via a small inline modal and remembered on this
+  // device (localStorage), so returning visitors aren't asked again.
+  // -----------------------------------------------------------------
+  const GUEST_PROFILE_KEY = 'atw_guest_profile_v1';
+  let guestProfile = {};
+  function loadGuestProfile(){
+    try{ guestProfile = JSON.parse(localStorage.getItem(GUEST_PROFILE_KEY)) || {}; }catch(e){ guestProfile = {}; }
+    if(!guestProfile.id){
+      guestProfile.id = 'guest_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+      saveGuestProfile();
+    }
+  }
+  function saveGuestProfile(){
+    try{ localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify(guestProfile)); }catch(e){}
+  }
+  // Effective chat/purchase identity: a real logged-in account (admin
+  // rarely uses this widget; a legacy user/moderator account still
+  // works if one exists) wins if present, otherwise the guest profile.
+  function identityPhone(){ return currentUser ? currentUser.phone : (guestProfile.phone || guestProfile.id); }
+  function identityName(){ return currentUser ? currentUser.name : (guestProfile.name || (currentLang==='ur' ? 'Guest' : 'Guest')); }
+  function hasGuestPhone(){ return !!(currentUser ? currentUser.phone : guestProfile.phone); }
+
+  let guestIdentityNeedPhone = false;
+  let guestIdentityCallback = null;
+  // needPhone=true (buying) asks for name + phone; needPhone=false (chat)
+  // asks for name only. Skips straight to the callback if we already
+  // have what's needed.
+  function ensureGuestIdentity(needPhone, callback){
+    if(currentUser){ callback(); return; }
+    if(guestProfile.name && (!needPhone || guestProfile.phone)){ callback(); return; }
+    guestIdentityNeedPhone = needPhone;
+    guestIdentityCallback = callback;
+    const nameEl = document.getElementById('guest-identity-name');
+    const phoneEl = document.getElementById('guest-identity-phone');
+    const phoneField = document.getElementById('guest-identity-phone-field');
+    const errEl = document.getElementById('guest-identity-error');
+    const titleEl = document.getElementById('guest-identity-title');
+    if(nameEl) nameEl.value = guestProfile.name || '';
+    if(phoneEl) phoneEl.value = guestProfile.phone || '';
+    if(phoneField) phoneField.style.display = needPhone ? '' : 'none';
+    if(errEl) errEl.textContent = '';
+    if(titleEl) titleEl.textContent = needPhone
+      ? (currentLang==='ur' ? 'Khareedne ke liye apna naam aur phone number likhain' : 'Enter your name and phone number to buy')
+      : (currentLang==='ur' ? 'Live Chat shuru karne ke liye apna naam likhain' : 'Enter your name to start Live Chat');
+    document.getElementById('guest-identity-modal').classList.add('show');
+    if(nameEl) setTimeout(() => nameEl.focus(), 50);
+  }
+  function closeGuestIdentityModal(){
+    document.getElementById('guest-identity-modal').classList.remove('show');
+    guestIdentityCallback = null;
+  }
+  function submitGuestIdentity(){
+    const name = (document.getElementById('guest-identity-name').value || '').trim();
+    const phone = (document.getElementById('guest-identity-phone').value || '').trim();
+    const errEl = document.getElementById('guest-identity-error');
+    if(!name){ errEl.textContent = currentLang==='ur' ? 'Naam likhna zaroori hai.' : 'Name is required.'; return; }
+    if(guestIdentityNeedPhone && !phone){ errEl.textContent = currentLang==='ur' ? 'Phone number likhna zaroori hai.' : 'Phone number is required.'; return; }
+    guestProfile.name = name;
+    if(phone) guestProfile.phone = phone;
+    saveGuestProfile();
+    document.getElementById('guest-identity-modal').classList.remove('show');
+    const cb = guestIdentityCallback;
+    guestIdentityCallback = null;
+    if(cb) cb();
+  }
+
 function collectState(){
     return { ADMIN, users, uploads, links, chatThreads, premiumRequests, erpCounter, uploadIdCounter, linkIdCounter, premiumReqIdCounter, siteAnnouncement, currentLang, broadcastNotifications, adminNotifications, forceLogoutEpoch };
   }
@@ -349,9 +420,10 @@ if(saved.role === 'moderator'){
   const translations = {
     ur: {
       brand: 'SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL',
-      portalSub: 'Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.',
-      accessTitle: 'Access Card', accessSub: 'Neeche apna role select karain',
-      guestSub: 'Neeche mojood content sirf dekhne ke liye hai. Kisi bhi file/link ko kholne ya Live Chat ke liye Login ya Register karna zaroori hai.',
+      portalSub: 'Sirf Admin login ke liye.',
+      accessTitle: 'Access Card', accessSub: 'Admin password likhain',
+      guestSub: 'Neeche mojood har cheez ka rate/price dikhaya gaya hai. Kisi bhi item par click karain — description khul jayegi. Khareedne ke liye sirf naam aur phone number chahiye. Live Chat ke liye sirf apna naam den.',
+      guestIdTitleChat: 'Apna Naam Likhein', btnContinue: 'Jaari Rakhein',
       btnLoginRegister: 'Login / Register', btnAdminSmall: '⚙ Admin', btnBackToSite: '← Site par wapas jayein',
       tabUser: 'User', tabAdmin: 'Admin',
 btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
@@ -399,9 +471,10 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
     },
     en: {
       brand: 'SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL',
-      portalSub: 'Choose your role — Admin or User. Login or register from one box below.',
-      accessTitle: 'Access Card', accessSub: 'Select your role below',
-      guestSub: 'The content below is for browsing only. Login or Register to open any file/link or to use Live Chat.',
+      portalSub: 'Admin login only.',
+      accessTitle: 'Access Card', accessSub: 'Enter the admin password',
+      guestSub: 'Every item below shows its rate/price. Tap any item to see its description. Buying only needs a name and phone number. Live Chat only needs your name.',
+      guestIdTitleChat: 'Enter Your Name', btnContinue: 'Continue',
       btnLoginRegister: 'Login / Register', btnAdminSmall: '⚙ Admin', btnBackToSite: '← Back to site',
       tabUser: 'User', tabAdmin: 'Admin',
 btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
@@ -1689,7 +1762,11 @@ function toggleBlock(phone){
         return;
       }
       area.innerHTML = `<div class="app-tile-grid">` + all.map((item,i) => {
-        const onclickAttr = t.guest ? `onclick="promptGuestLogin()"` : (item._kind === 'upload' ? `onclick="handleContentClick('upload', ${item.id})"` : `onclick="handleContentClick('link', ${item.id})"`);
+        // Everyone — including guests who haven't given a name/phone yet
+        // — can tap any item to see its rate/description right away. No
+        // login is required just to look, only to actually buy (see
+        // handleContentClick -> openPremiumModal).
+        const onclickAttr = item._kind === 'upload' ? `onclick="handleContentClick('upload', ${item.id})"` : `onclick="handleContentClick('link', ${item.id})"`;
         if(item._kind === 'upload'){
           return `
           <div class="app-tile" style="animation-delay:${i*0.08}s">
@@ -1827,13 +1904,15 @@ function toggleBlock(phone){
   }
 
   function hasPremiumApproved(kind, id){
-    if(!currentUser) return false;
-    return premiumRequests.some(r => r.itemKind === kind && r.itemId === id && r.userPhone === currentUser.phone && r.status === 'approved');
+    if(!hasGuestPhone()) return false;
+    const ph = identityPhone();
+    return premiumRequests.some(r => r.itemKind === kind && r.itemId === id && r.userPhone === ph && r.status === 'approved');
   }
 
   function getLatestPremiumRequest(kind, id){
-    if(!currentUser) return null;
-    const mine = premiumRequests.filter(r => r.itemKind === kind && r.itemId === id && r.userPhone === currentUser.phone);
+    if(!hasGuestPhone()) return null;
+    const ph = identityPhone();
+    const mine = premiumRequests.filter(r => r.itemKind === kind && r.itemId === id && r.userPhone === ph);
     return mine.length ? mine[mine.length - 1] : null;
   }
 
@@ -1865,8 +1944,14 @@ function toggleBlock(phone){
   }
 
   function openPremiumModal(kind, id){
+    // Buying needs a name + phone number — ask for it inline (once; it's
+    // then remembered on this device) before showing the payment screen.
+    ensureGuestIdentity(true, function(){ actuallyOpenPremiumModal(kind, id); });
+  }
+
+  function actuallyOpenPremiumModal(kind, id){
     const item = kind === 'upload' ? uploads.find(x => x.id === id) : links.find(x => x.id === id);
-    if(!item || !currentUser) return;
+    if(!item || !hasGuestPhone()) return;
     premiumModalTarget = { kind, id };
     premiumScreenshotData = null;
     const nameEl = document.getElementById('premium-modal-item-name');
@@ -1909,7 +1994,7 @@ function toggleBlock(phone){
   }
 
   function submitPremiumScreenshot(){
-    if(!premiumModalTarget || !currentUser) return;
+    if(!premiumModalTarget || !hasGuestPhone()) return;
     if(!premiumScreenshotData){
       alert(currentLang==='ur' ? 'Pehle payment ka screenshot upload karain.' : 'Please upload the payment screenshot first.');
       return;
@@ -1922,8 +2007,8 @@ function toggleBlock(phone){
       itemKind: kind,
       itemId: id,
       itemName: kind === 'upload' ? item.fileName : item.name,
-      userPhone: currentUser.phone,
-      userName: currentUser.name,
+      userPhone: identityPhone(),
+      userName: identityName(),
       screenshot: premiumScreenshotData,
       status: 'pending',
       requestedAt: new Date().toLocaleString()
@@ -2404,24 +2489,27 @@ function closeModal(){
   }
 
   function toggleChatPanel(){
-    // Live Chat is a logged-in feature — a guest (nobody logged in at
-    // all) who taps the chat bubble gets sent to login/register instead
-    // of an empty chat box. Admin/moderator sessions are untouched.
-    if(!currentRole){
-      const panel = document.getElementById('chat-panel');
-      if(panel) panel.classList.remove('open');
-      promptGuestLogin();
+    // Live Chat is open to anyone — a guest just gives their name (no
+    // password, no registration) and the chat opens right away. If they
+    // already gave a name earlier on this device, it opens instantly.
+    const panel = document.getElementById('chat-panel');
+    if(panel.classList.contains('open')){
+      panel.classList.remove('open');
       return;
     }
-    const panel = document.getElementById('chat-panel');
-    panel.classList.toggle('open');
-    if(panel.classList.contains('open')) renderUserChatLog();
+    ensureGuestIdentity(false, function(){
+      panel.classList.add('open');
+      renderUserChatLog();
+    });
   }
 
   function renderUserChatLog(){
-    if(!currentUser) return;
-    const thread = chatThreads[currentUser.phone] || { name: currentUser.name, messages: [] };
-    chatThreads[currentUser.phone] = thread;
+    const id = identityPhone();
+    if(!id) return;
+    if(window.subscribeToChat) window.subscribeToChat(id);
+    const thread = chatThreads[id] || { name: identityName(), messages: [] };
+    thread.name = identityName();
+    chatThreads[id] = thread;
     thread.messages.forEach(m => { if(m.from === 'admin') m.read = true; });
     const log = document.getElementById('user-chat-log');
     log.innerHTML = thread.messages.map(m => `
@@ -2432,13 +2520,15 @@ function closeModal(){
   }
 
   function userSendMessage(){
-    if(!currentUser) return;
+    const id = identityPhone();
+    if(!id) return;
     const input = document.getElementById('user-chat-input');
     const val = input.value.trim();
     if(!val) return;
-    const thread = chatThreads[currentUser.phone] || { name: currentUser.name, messages: [] };
+    const thread = chatThreads[id] || { name: identityName(), messages: [] };
+    thread.name = identityName();
     thread.messages.push({ from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
-    chatThreads[currentUser.phone] = thread;
+    chatThreads[id] = thread;
     saveState();
     input.value = '';
     renderUserChatLog();
@@ -2517,7 +2607,7 @@ function closeModal(){
   // moment localStorage actually changes, so we don't need to poll at
   // all — this is both lighter AND more responsive.
   window.addEventListener('storage', function(e){
-    if(e.key !== STORAGE_KEY || !e.newValue || !currentRole) return;
+    if(e.key !== STORAGE_KEY || !e.newValue) return;
     let data;
     try{ data = JSON.parse(e.newValue); }catch(err){ return; }
     chatThreads = data.chatThreads || chatThreads;
@@ -2531,6 +2621,14 @@ function closeModal(){
       const thread = currentUser && chatThreads[currentUser.phone];
       if(thread && thread.messages.some(m => m.from==='admin' && !m.read)) document.getElementById('chat-badge').classList.add('show');
       renderNotifBell();
+    }
+    // Guests (no login at all) — same live cross-tab chat update, keyed
+    // by their device's guest identity instead of a registered account.
+    if(!currentRole){
+      const gid = identityPhone();
+      if(gid && document.getElementById('chat-panel').classList.contains('open')) renderUserChatLog();
+      const gthread = gid && chatThreads[gid];
+      if(gthread && gthread.messages.some(m => m.from==='admin' && !m.read)) document.getElementById('chat-badge').classList.add('show');
     }
     if(currentRole === 'admin'){
       renderThreadList();
@@ -2576,6 +2674,7 @@ function closeModal(){
   }
 
   window.addEventListener('DOMContentLoaded', () => {
+    loadGuestProfile();
     loadState();
     checkAppVersion();          // new deploy since last visit? -> clears any stale session
     applyForceLogoutIfNeeded(); // admin restarted the app since last visit? -> clears session
@@ -2608,4 +2707,5 @@ document.addEventListener('keydown', function(e){
     }
     if(document.activeElement && document.activeElement.id === 'user-chat-input') userSendMessage();
     if(document.activeElement && document.activeElement.id === 'admin-chat-input') adminSendMessage();
+    if(document.activeElement && (document.activeElement.id === 'guest-identity-name' || document.activeElement.id === 'guest-identity-phone')) submitGuestIdentity();
   });

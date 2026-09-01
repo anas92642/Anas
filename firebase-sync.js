@@ -489,13 +489,21 @@ if(window.deleteUpload){
     window.userSendMessage = function(){
       const input = document.getElementById('user-chat-input');
       const val = input ? input.value.trim() : '';
-      if(!val || typeof currentUser === 'undefined' || !currentUser) return;
+      // Chat is open to guests too now — fall back to the guest identity
+      // (name + device id, no login needed) when no real account is
+      // logged in, instead of requiring currentUser.
+      const id = typeof identityPhone === 'function' ? identityPhone() : (typeof currentUser !== 'undefined' && currentUser ? currentUser.phone : null);
+      if(!val || !id) return;
       if(fbReady){
-        fbSendChatMessage(currentUser.phone, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
-        // Lightweight ping on the user's own doc — the already-live
-        // `users` listener picks this up so Admin gets a real-time
-        // notification without needing a separate listener per thread.
-        fbDb.collection('users').doc(currentUser.phone).set({ lastMsgAt: Date.now(), lastMsgFrom: 'user' }, {merge:true}).catch(e=>console.warn(e));
+        subscribeToChat(id);
+        fbSendChatMessage(id, { from:'user', text: val, time: new Date().toLocaleTimeString(), read:false });
+        if(typeof currentUser !== 'undefined' && currentUser && currentUser.phone === id){
+          // Registered accounts only — lightweight ping on their existing
+          // `users` doc so Admin's thread list updates in real time. Guest
+          // chats (no account) skip this so we never write a fake/partial
+          // record into the real Users collection.
+          fbDb.collection('users').doc(id).set({ lastMsgAt: Date.now(), lastMsgFrom: 'user' }, {merge:true}).catch(e=>console.warn(e));
+        }
         if(input) input.value = '';
       } else {
         _userSendMessage();
