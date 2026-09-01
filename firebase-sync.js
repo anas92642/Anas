@@ -153,7 +153,10 @@ function startCloudListeners(){
     if(typeof saveState === 'function') saveState();
 if(typeof currentRole !== 'undefined'){
       if(currentRole === 'admin' && typeof renderAdminUploads === 'function') renderAdminUploads();
-      if(currentRole === 'user' && typeof renderCommunityUploads === 'function') renderCommunityUploads();
+      // Also covers the public/guest view (currentRole is null/undefined
+      // there) so newly published items show up live for people who
+      // haven't logged in yet.
+      if(currentRole !== 'admin' && typeof renderCommunityUploads === 'function') renderCommunityUploads();
     }
   }, err => showFbError('uploads', err));
 
@@ -170,7 +173,8 @@ if(typeof currentRole !== 'undefined'){
     if(typeof saveState === 'function') saveState();
     if(typeof currentRole !== 'undefined'){
       if(currentRole === 'admin' && typeof renderAdminLinks === 'function') renderAdminLinks();
-      if(currentRole === 'user' && typeof renderUserLinks === 'function') renderUserLinks();
+      // Also covers the public/guest view — see uploads listener above.
+      if(currentRole !== 'admin' && typeof renderUserLinks === 'function') renderUserLinks();
     }
   }, err => showFbError('links', err));
 

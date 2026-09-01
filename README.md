@@ -7,7 +7,6 @@ script.js             -> all core logic (login, uploads, chat, voice assistant, 
 firebase-sync.js      -> OPTIONAL cloud sync layer (see below) — loads after script.js
 assets/
   hero-arms-crossed.png
-  hero-adjusting-tie.png
 data/
   schema.json         -> documents the data shape (reference only)
 ```

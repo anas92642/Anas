@@ -24,11 +24,32 @@
 
 <div class="app">
 
-  <!-- ============ PORTAL SELECT ============ -->
-  <div class="screen active" id="screen-portal">
+  <!-- ============ PUBLIC GUEST VIEW (default landing — no login needed just to look around) ============ -->
+  <div class="screen active" id="screen-guest">
+    <button type="button" class="guest-admin-btn" onclick="openAdminPortal()" data-i18n="btnAdminSmall" title="Admin">⚙ Admin</button>
+    <div class="brandmark"><div class="led"></div><span data-i18n="brand">SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL</span></div>
+    <div class="announcement" id="guest-announcement"></div>
+    <div class="portal-wrap">
+      <h1 id="guest-typewriter-heading"></h1>
+      <p class="sub" data-i18n="guestSub">Neeche mojood content sirf dekhne ke liye hai. Kisi bhi file/link ko kholne ya Live Chat ke liye Login ya Register karna zaroori hai.</p>
+
+      <div class="section" id="guest-content-section" style="text-align:left;">
+        <div class="list-header"><h3 data-i18n="adminUpdates">// Admin Content</h3><span id="guest-community-count">0 items</span></div>
+        <div id="guest-community-area"></div>
+      </div>
+
+      <div style="margin-top:26px; text-align:center;">
+        <button class="btn-primary" style="width:auto; padding:12px 26px;" onclick="promptGuestLogin()" data-i18n="btnLoginRegister">Login / Register</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PORTAL SELECT (login/register — hidden until a guest asks for it) ============ -->
+  <div class="screen" id="screen-portal">
     <div class="brandmark"><div class="led"></div><span data-i18n="brand">SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL</span></div>
     <div class="announcement" id="portal-announcement"></div>
     <div class="portal-wrap">
+      <button type="button" class="guest-back-link" onclick="showScreen('screen-guest')" data-i18n="btnBackToSite">← Site par wapas jayein</button>
       <h1 id="typewriter-heading"></h1>
       <p class="sub" data-i18n="portalSub">Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.</p>
 
@@ -150,7 +171,7 @@
       </div>
 
       <div class="welcome-circle-wrap" id="welcome-circle-block">
-        <div class="welcome-circle"><img src="assets/hero-adjusting-tie.png" alt="Anas Technical World"></div>
+        <div class="welcome-circle"><img src="assets/hero-arms-crossed.png" alt="Anas Technical World"></div>
         <h2 data-i18n="welcomeBrand">Welcome to Anas Technical World</h2>
         <div class="greet-ur">السلام علیکم</div>
         <p data-i18n="welcomeSubtext">Aapka digital access card taiyar hai.</p>

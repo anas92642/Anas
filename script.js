@@ -236,7 +236,7 @@ if(saved.role === 'moderator'){
         ? 'App restart/update hui hai — dobara login karain.'
         : 'The app was restarted/updated — please log in again.');
       if(typeof switchRoleTab === 'function') switchRoleTab('user');
-      if(typeof showScreen === 'function') showScreen('screen-portal');
+      if(typeof showScreen === 'function') showScreen('screen-guest');
     }
   }
 
@@ -278,7 +278,7 @@ if(saved.role === 'moderator'){
       try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
       showSessionToast(currentLang==='ur' ? 'App restart ho gayi — dobara login karain.' : 'App restarted — please log in again.');
       switchRoleTab('user');
-      showScreen('screen-portal');
+      showScreen('screen-guest');
     }, 500);
   }
 
@@ -351,6 +351,8 @@ if(saved.role === 'moderator'){
       brand: 'SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL',
       portalSub: 'Apna role chunain — Admin ya User. Neeche ek hi box se login ya register karain.',
       accessTitle: 'Access Card', accessSub: 'Neeche apna role select karain',
+      guestSub: 'Neeche mojood content sirf dekhne ke liye hai. Kisi bhi file/link ko kholne ya Live Chat ke liye Login ya Register karna zaroori hai.',
+      btnLoginRegister: 'Login / Register', btnAdminSmall: '⚙ Admin', btnBackToSite: '← Site par wapas jayein',
       tabUser: 'User', tabAdmin: 'Admin',
 btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       lblName: 'Naam (Name)', phName: 'e.g. Ahmed Raza',
@@ -399,6 +401,8 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       brand: 'SECURE <b>ANAS TECHNICAL WORLD</b> // PORTAL',
       portalSub: 'Choose your role — Admin or User. Login or register from one box below.',
       accessTitle: 'Access Card', accessSub: 'Select your role below',
+      guestSub: 'The content below is for browsing only. Login or Register to open any file/link or to use Live Chat.',
+      btnLoginRegister: 'Login / Register', btnAdminSmall: '⚙ Admin', btnBackToSite: '← Back to site',
       tabUser: 'User', tabAdmin: 'Admin',
 btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
       lblName: 'Name', phName: 'e.g. Ahmed Raza',
@@ -463,7 +467,8 @@ btnRegister: 'Register', btnLogin: 'Login', btnLoginGo: 'Login',
     saveState();
     // re-render dynamic content that embeds translated strings
     if(document.getElementById('screen-welcome-admin').classList.contains('active')) renderAdminWelcome();
-    if(document.getElementById('screen-welcome-user').classList.contains('active')) renderCommunityUploads();
+    if(document.getElementById('screen-welcome-user').classList.contains('active')
+      || document.getElementById('screen-guest').classList.contains('active')) renderCommunityUploads();
   }
 
   // =================================================================
@@ -878,7 +883,9 @@ function logout(){
     if(document.getElementById('admin-password')) document.getElementById('admin-password').value = '';
     if(document.getElementById('chat-panel')) document.getElementById('chat-panel').classList.remove('open');
     switchRoleTab('user');
-    showScreen('screen-portal');
+    // After logging out, go back to the public view — not straight to
+    // the login form — same as any first-time visitor.
+    showScreen('screen-guest');
   }
 
   // =================================================================
@@ -1666,8 +1673,12 @@ function toggleBlock(phone){
   function renderUnifiedUserContent(){
     const all = buildPublicContentList();
     [
-      { countEl:'community-count', areaEl:'community-area' },
-      { countEl:'mod-community-count', areaEl:'mod-community-area' }
+      { countEl:'community-count', areaEl:'community-area', guest:false },
+      { countEl:'mod-community-count', areaEl:'mod-community-area', guest:false },
+      // Public/guest view — same feed, but tapping anything must ask for
+      // login/register first instead of actually opening the item, since
+      // nobody has logged in yet.
+      { countEl:'guest-community-count', areaEl:'guest-community-area', guest:true }
     ].forEach(function(t){
       const area = document.getElementById(t.areaEl);
       if(!area) return;
@@ -1678,17 +1689,18 @@ function toggleBlock(phone){
         return;
       }
       area.innerHTML = `<div class="app-tile-grid">` + all.map((item,i) => {
+        const onclickAttr = t.guest ? `onclick="promptGuestLogin()"` : (item._kind === 'upload' ? `onclick="handleContentClick('upload', ${item.id})"` : `onclick="handleContentClick('link', ${item.id})"`);
         if(item._kind === 'upload'){
           return `
           <div class="app-tile" style="animation-delay:${i*0.08}s">
-            <div class="app-icon-wrap" onclick="handleContentClick('upload', ${item.id})">${uploadIconHTML(item)}</div>
-            <div class="app-tile-name" onclick="handleContentClick('upload', ${item.id})">${escapeHtml(item.fileName)}</div>
+            <div class="app-icon-wrap" ${onclickAttr}>${uploadIconHTML(item)}</div>
+            <div class="app-tile-name" ${onclickAttr}>${escapeHtml(item.fileName)}</div>
             ${premiumTagHTML(item)}
           </div>`;
         }
         return `
           <div class="link-card">
-            <div class="link-main" style="cursor:pointer;" onclick="handleContentClick('link', ${item.id})">
+            <div class="link-main" style="cursor:pointer;" ${onclickAttr}>
               ${linkIconHTML(item)}
               <div class="link-name">${escapeHtml(item.name)}</div>
               ${premiumTagHTML(item)}
@@ -1701,6 +1713,28 @@ function toggleBlock(phone){
   // renderAdminLinks above (firebase-sync.js + existing call sites).
   function renderCommunityUploads(){ renderUnifiedUserContent(); }
   function renderUserLinks(){ renderUnifiedUserContent(); }
+
+  // -----------------------------------------------------------------
+  // GUEST GATE — anyone can open the site and browse the public content
+  // list without logging in. The moment they try to actually OPEN
+  // something (a file/link tile) or tap Live Chat, we send them to the
+  // login/register portal instead. Nothing happens (no file opens, no
+  // chat opens) until they log in or register.
+  // -----------------------------------------------------------------
+  function promptGuestLogin(){
+    switchRoleTab('user');
+    showScreen('screen-portal');
+    showSessionToast(currentLang==='ur'
+      ? 'Ye kholne ke liye pehle Login ya Register karain.'
+      : 'Please login or register first to open this.');
+  }
+
+  // Small "Admin" button on the guest view — jumps straight to the
+  // Admin login pane of the portal.
+  function openAdminPortal(){
+    switchRoleTab('admin');
+    showScreen('screen-portal');
+  }
 
   // Admin flips an item's premium flag on/off directly from its tile.
   function togglePremium(kind, id){
@@ -2345,14 +2379,17 @@ function closeModal(){
     document.getElementById('ann-success').textContent = currentLang==='ur' ? 'Announcement clear ho gaya.' : 'Announcement cleared.';
   }
   function applyAnnouncement(){
-    const el = document.getElementById('portal-announcement');
-    if(siteAnnouncement){
-      el.textContent = siteAnnouncement;
-      el.classList.add('show');
-    } else {
-      el.textContent = '';
-      el.classList.remove('show');
-    }
+    ['portal-announcement', 'guest-announcement'].forEach(function(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      if(siteAnnouncement){
+        el.textContent = siteAnnouncement;
+        el.classList.add('show');
+      } else {
+        el.textContent = '';
+        el.classList.remove('show');
+      }
+    });
     const input = document.getElementById('announcement-input');
     if(input) input.value = siteAnnouncement;
   }
@@ -2367,6 +2404,15 @@ function closeModal(){
   }
 
   function toggleChatPanel(){
+    // Live Chat is a logged-in feature — a guest (nobody logged in at
+    // all) who taps the chat bubble gets sent to login/register instead
+    // of an empty chat box. Admin/moderator sessions are untouched.
+    if(!currentRole){
+      const panel = document.getElementById('chat-panel');
+      if(panel) panel.classList.remove('open');
+      promptGuestLogin();
+      return;
+    }
     const panel = document.getElementById('chat-panel');
     panel.classList.toggle('open');
     if(panel.classList.contains('open')) renderUserChatLog();
@@ -2539,11 +2585,16 @@ function closeModal(){
     initEmailJs();
     initPaymentSettings();
 
+    // Public content is visible on the guest view before anyone logs
+    // in, so populate it right away.
+    renderCommunityUploads();
+
     // If this browser had an active session (admin or a logged-in user),
-    // resume it instead of showing the login/register portal again.
+    // resume it instead of showing the public guest view.
     const resumed = restoreSession();
     if(!resumed){
-      typeText(document.getElementById('typewriter-heading'), currentLang==='ur' ? 'Anas Technical World mein khush aamdeed' : 'Welcome to Anas Technical World', 40);
+      showScreen('screen-guest');
+      typeText(document.getElementById('guest-typewriter-heading'), currentLang==='ur' ? 'Anas Technical World mein khush aamdeed' : 'Welcome to Anas Technical World', 40);
     }
   });
 
